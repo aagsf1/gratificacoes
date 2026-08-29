@@ -76,10 +76,17 @@
       </section>
       <section id="csjt" class="view">
         <div id="csjt-sheet" class="panel csjt-sheet">
-          <div class="csjt-title-row"><h2>Quadro CSJT</h2><strong>Situação Proposta</strong></div>
-          <p class="csjt-reference">Estrutura da aba “Quadro CSJT” — valores calculados com precisão de quatro casas decimais.</p>
-          <div class="table-wrap"><table id="csjt-table" aria-label="Quadro CSJT - Situação Proposta"></table></div>
-          <div id="csjt-summary" class="csjt-summary"></div>
+          <div class="csjt-title-row"><h2>Quadro CSJT</h2><p>Consolidação calculada exclusivamente a partir das gratificações cadastradas na aplicação.</p></div>
+          <section class="csjt-situation" aria-labelledby="csjt-previous-title">
+            <h3 id="csjt-previous-title">Situação Anterior</h3>
+            <p class="csjt-reference">Gratificações ativas identificadas com a situação “ANTIGA”.</p>
+            <div class="table-wrap"><table id="csjt-previous-table" aria-label="Quadro CSJT - Situação Anterior"></table></div>
+          </section>
+          <section class="csjt-situation" aria-labelledby="csjt-current-title">
+            <h3 id="csjt-current-title">Situação Atual</h3>
+            <p class="csjt-reference">Todas as gratificações ativas. Os percentuais aparecem na linha de total.</p>
+            <div class="table-wrap"><table id="csjt-current-table" aria-label="Quadro CSJT - Situação Atual"></table></div>
+          </section>
         </div>
       </section>
       <section id="relatorios" class="view">

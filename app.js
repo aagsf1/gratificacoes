@@ -1,7 +1,7 @@
 import { isConfigured } from "./app-config.js";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyRecoveryCode } from "./auth.js";
 import { inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js";
-import { decimal4, fromDecimal4, summarize } from "./calc.js";
+import { decimal4, fromDecimal4, summarize, summarizeCsjt } from "./calc.js";
 
 const state = { identity: null, data: null, summary: null };
 const $ = selector => document.querySelector(selector);
@@ -129,24 +129,28 @@ function renderGrants() {
   $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canWrite() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago), 4)}</td>${canWrite() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}">Inativar</button></td>` : ""}</tr>`).join("")}</tbody>`;
 }
 
+function csjtTable(summary, showRatios = false) {
+  const values = summary.rows.map(row => {
+    const type = state.data.tipos.find(item => item.codigo === row.codigo);
+    const unlinkedPaid4 = decimal4(type.valor_integral) * BigInt(row.unlinked);
+    return { row, linkedPaid4: row.paid4 - unlinkedPaid4, unlinkedPaid4 };
+  });
+  const body = values.map(({ row, linkedPaid4, unlinkedPaid4 }) => `<tr><th scope="row" class="cargo">${row.codigo}</th><td class="effective">${row.linked}</td><td class="effective">${money(fromDecimal4(linkedPaid4), 4)}</td><td class="unlinked">${row.unlinked}</td><td class="unlinked">${money(fromDecimal4(unlinkedPaid4), 4)}</td><td class="total">${row.count}</td><td class="total">${money(fromDecimal4(row.paid4), 4)}</td></tr>`).join("");
+  const linkedPaid4 = values.reduce((sum, item) => sum + item.linkedPaid4, 0n);
+  const unlinkedPaid4 = values.reduce((sum, item) => sum + item.unlinkedPaid4, 0n);
+  const t = summary.totals;
+  const percentage = value => `${(t.count ? value / t.count * 100 : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  const linkedTotal = showRatios ? `${t.linked} (${percentage(t.linked)})` : t.linked;
+  const unlinkedTotal = showRatios ? `${t.unlinked} (${percentage(t.unlinked)})` : t.unlinked;
+  const balanceClass = showRatios ? (t.balance4 >= 0n ? " budget-ok" : " budget-exceeded") : "";
+  return `<thead><tr><th>Cargo</th><th>Qtd. efetivos</th><th>Valor efetivo</th><th>Qtd. sem vínculo</th><th>Valor sem vínculo</th><th>Qtd. Total</th><th>Valor Total</th></tr></thead><tbody>${body}</tbody><tfoot><tr><th scope="row" class="cargo">Total</th><td class="effective">${linkedTotal}</td><td class="effective">${money(fromDecimal4(linkedPaid4), 4)}</td><td class="unlinked">${unlinkedTotal}</td><td class="unlinked">${money(fromDecimal4(unlinkedPaid4), 4)}</td><td class="total">${t.count}</td><td class="total${balanceClass}">${money(fromDecimal4(t.paid4), 4)}</td></tr></tfoot>`;
+}
+
 function renderCsjt() {
-  const rows = state.summary.rows;
-  const body = rows.map(row => {
-    const type = state.data.tipos.find(item => item.codigo === row.codigo);
-    const linkedValue = Number(type.valor_com_vinculo) * row.linked;
-    const unlinkedValue = Number(type.valor_integral) * row.unlinked;
-    return `<tr><td class="cargo">${row.codigo}</td><td class="effective numeric">${row.linked}</td><td class="effective numeric">${money(linkedValue, 4)}</td><td class="unlinked numeric">${row.unlinked}</td><td class="unlinked numeric">${money(unlinkedValue, 4)}</td><td class="total numeric">${row.count}</td><td class="total numeric">${money(fromDecimal4(row.paid4), 4)}</td></tr>`;
-  }).join("");
-  const t = state.summary.totals;
-  const linkedPaid4 = state.summary.rows.reduce((sum, row) => {
-    const type = state.data.tipos.find(item => item.codigo === row.codigo);
-    return sum + decimal4(type.valor_com_vinculo) * BigInt(row.linked);
-  }, 0n);
-  const unlinkedPaid4 = t.paid4 - linkedPaid4;
-  $("#csjt-table").innerHTML = `<thead><tr><th class="cargo">Cargo</th><th class="effective">Qtd. efetivos</th><th class="effective">Valor efetivos</th><th class="unlinked">Qtd. sem vínculo</th><th class="unlinked">Valor sem vínculo</th><th class="total">Qtd. Total</th><th class="total">Valor Total</th></tr></thead><tbody>${body}<tr class="grand-total"><td class="cargo">Total</td><td class="effective numeric">${t.linked}</td><td class="effective numeric">${money(fromDecimal4(linkedPaid4), 4)}</td><td class="unlinked numeric">${t.unlinked}</td><td class="unlinked numeric">${money(fromDecimal4(unlinkedPaid4), 4)}</td><td class="total numeric">${t.count}</td><td class="total numeric">${money(fromDecimal4(t.paid4), 4)}</td></tr></tbody>`;
-  const linkedRatio = t.count ? t.linked / t.count * 100 : 0;
-  const unlinkedRatio = t.count ? t.unlinked / t.count * 100 : 0;
-  $("#csjt-summary").innerHTML = `<article><h3>Orçamento paradigma (100%) - Situação Anterior</h3><p>Todas as CJs são calculadas como 100%</p><strong>${money(fromDecimal4(t.budget4), 2)}</strong></article><article class="csjt-ratio"><h3>Proporção de distribuição entre<br>efetivos X sem vínculo</h3><p>&nbsp;</p><strong><span>${linkedRatio.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span><span>X</span><span>${unlinkedRatio.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</span></strong></article><article><h3>Sobra orçamentária futura</h3><p>Diferença entre o orçamento paradigma e o valor total pago</p><strong>${money(fromDecimal4(t.balance4), 4)}</strong></article>`;
+  const scenario = currentScenario();
+  const summaries = summarizeCsjt(state.data.gratificacoesTodas, state.data.tipos, scenario?.orcamento_paradigma ?? 0);
+  $("#csjt-previous-table").innerHTML = csjtTable(summaries.previous);
+  $("#csjt-current-table").innerHTML = csjtTable(summaries.current, true);
 }
 
 function selectedReportFields() {

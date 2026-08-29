@@ -24,7 +24,9 @@ assert.match(html, /\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/, "Telas
 assert.match(await readFile(resolve(root, "app.js"), "utf8"), /PASSWORD_RECOVERY[\s\S]*otp_expired|otp_expired[\s\S]*PASSWORD_RECOVERY/, "A aplicação deve tratar recuperação e links expirados");
 assert.match(await readFile(resolve(root, "data-service.js"), "utf8"), /functions\.invoke\("invite-user"/, "O cadastro deve usar a função protegida de convite");
 assert.match(html, /id="report-field-options"[\s\S]*id="report-active"|id="report-active"[\s\S]*id="report-field-options"/, "O relatório deve permitir escolher campos e incluir inativas");
-assert.match(html, /id="csjt-summary"/, "O Quadro CSJT deve conter o bloco de resumo da planilha");
+assert.match(html, /id="csjt-previous-table"[\s\S]*id="csjt-current-table"/, "O Quadro CSJT deve apresentar as situações anterior e atual nessa ordem");
+assert.doesNotMatch(html, /SIMULAÇÕES|Incremento efetivos/i, "O Quadro CSJT não deve reproduzir a simulação da página de referência");
+assert.match(await readFile(resolve(root, "app.js"), "utf8"), /summarizeCsjt\(state\.data\.gratificacoesTodas/, "O Quadro CSJT deve ser calculado com os dados carregados da aplicação");
 const app = await readFile(resolve(root, "app.js"), "utf8");
 assert.match(app, /updateNewGrantVisibility\(button\.dataset\.view\)/, "Nova gratificação deve acompanhar a seção ativa");
 assert.match(app, /activeView === "gratificacoes"/, "Nova gratificação deve aparecer somente em Gratificações");

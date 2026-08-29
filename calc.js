@@ -37,3 +37,11 @@ export function summarize(records, types, budget) {
   totals.execution = totals.budget4 ? Number(totals.paid4) / Number(totals.budget4) : 0;
   return { rows, totals };
 }
+
+export function summarizeCsjt(records, types, budget) {
+  const activeRecords = records.filter(item => item.ativo !== false);
+  return {
+    previous: summarize(activeRecords.filter(item => item.situacao === "ANTIGA"), types, budget),
+    current: summarize(activeRecords, types, budget),
+  };
+}
