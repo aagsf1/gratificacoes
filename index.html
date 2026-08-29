@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Gestão de Gratificações</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <main id="login-view" class="login-shell">
+    <form id="login-form" class="login-card">
+      <p class="eyebrow">TRT da 16ª Região</p>
+      <h1>Gestão de Gratificações</h1>
+      <p class="muted">Acesso institucional seguro por Supabase Auth.</p>
+      <label>E-mail<input id="email" name="email" type="email" autocomplete="username" required></label>
+      <label>Senha<input id="password" name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Entrar</button>
+      <button id="reset-password" class="link-button" type="button">Esqueci minha senha</button>
+      <p id="setup-warning" class="warning" hidden>Configure a URL e a chave publicável do Supabase em <code>app-config.js</code>.</p>
+    </form>
+  </main>
+
+  <div id="app-view" class="app-shell" hidden>
+    <aside>
+      <div class="brand"><span>GG</span><div><strong>Gratificações</strong><small>Gestão institucional</small></div></div>
+      <nav aria-label="Menu principal">
+        <button data-view="dashboard" class="active">Dashboard</button>
+        <button data-view="gratificacoes">Gratificações</button>
+        <button data-view="csjt">Quadro CSJT</button>
+        <button data-view="relatorios">Relatórios</button>
+        <button data-view="auditoria" data-role="auditor,admin">Auditoria</button>
+        <button data-view="administracao" data-role="admin">Administração</button>
+      </nav>
+      <div class="identity"><strong id="profile-name"></strong><small id="profile-role"></small><button id="logout" class="link-button">Sair</button></div>
+    </aside>
+    <main class="content">
+      <header><div><p class="eyebrow">Cenário vigente</p><h1 id="page-title">Dashboard</h1></div><button id="new-grant" data-write>Nova gratificação</button></header>
+      <section id="dashboard" class="view active-view">
+        <div id="cards" class="cards"></div>
+        <div class="panel"><h2>Distribuição por CJ</h2><div id="type-bars" class="bars"></div></div>
+        <div class="panel"><h2>Consolidação</h2><div class="table-wrap"><table id="summary-table"></table></div></div>
+      </section>
+      <section id="gratificacoes" class="view">
+        <div class="toolbar"><input id="search" type="search" placeholder="Pesquisar servidor, unidade ou sigla"><select id="filter-type"><option value="">Todas as CJs</option></select><select id="filter-link"><option value="">Todos os vínculos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></div>
+        <div class="panel table-wrap"><table id="grants-table"></table></div>
+      </section>
+      <section id="csjt" class="view"><div class="panel"><h2>Quadro CSJT — situação proposta</h2><p class="muted">Valores preservam quatro casas decimais.</p><div class="table-wrap"><table id="csjt-table"></table></div><div id="csjt-totals" class="cards compact"></div></div></section>
+      <section id="relatorios" class="view"><div class="panel"><h2>Relatório customizável</h2><div class="toolbar"><select id="report-type"><option value="">Todas as CJs</option></select><select id="report-situation"><option value="">Todas as situações</option></select><button id="export-csv">Exportar CSV</button><button id="print-report" class="secondary">Imprimir / PDF</button></div><div class="table-wrap"><table id="report-table"></table></div></div></section>
+      <section id="auditoria" class="view"><div class="panel"><h2>Trilha de auditoria</h2><div class="table-wrap"><table id="audit-table"></table></div></div></section>
+      <section id="administracao" class="view"><div class="panel"><h2>Perfis de acesso</h2><p class="muted">Usuários são criados no Supabase Auth; aqui o administrador define papel e situação.</p><div class="table-wrap"><table id="profiles-table"></table></div></div></section>
+    </main>
+  </div>
+
+  <dialog id="grant-dialog"><form id="grant-form" method="dialog"><h2>Gratificação</h2><input name="id" type="hidden"><label>Tipo<select name="tipo_id" required></select></label><label>Servidor<input name="servidor_nome"></label><label>Sigla da unidade<input name="unidade_sigla" required maxlength="30"></label><label>Nome da unidade<input name="unidade_nome" required></label><label>Vínculo<select name="com_vinculo"><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></label><label>Situação<select name="situacao"><option>ANTIGA</option><option>NOVA</option><option>ALTERADA</option><option>EXTINTA</option><option>FUTURO</option></select></label><label>Observações<textarea name="observacoes"></textarea></label><div class="dialog-actions"><button value="cancel" class="secondary">Cancelar</button><button id="save-grant" value="default">Salvar</button></div></form></dialog>
+</body>
+</html>
