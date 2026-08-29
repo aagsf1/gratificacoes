@@ -4,7 +4,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 
 ## Funcionalidades
 
-- Supabase Auth com recuperação de senha por código digitado manualmente, resistente ao consumo antecipado por scanners de e-mail;
+- Supabase Auth com primeiro acesso e recuperação de senha por códigos digitados manualmente, resistentes ao consumo antecipado por scanners de e-mail;
 - cadastro de usuários por convite, disponível somente para administradores;
 - perfis `admin`, `gestor`, `consulta` e `auditor`;
 - RLS no PostgreSQL e trilha de auditoria imutável para usuários do app;
@@ -25,6 +25,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 6. Copie a URL do projeto e a chave **publishable/anon** para `app-config.js`.
 7. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
 8. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
+9. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
 
 ## Cadastro de usuários pela aplicação
 
@@ -39,7 +40,9 @@ supabase secrets set SITE_URL=https://aagsf1.github.io/gratificacoes/
 supabase functions deploy invite-user
 ```
 
-Depois disso, um administrador pode informar nome, e-mail e perfil na aplicação. O usuário receberá um convite e cadastrará a própria senha. Os perfis continuam protegidos por RLS e somente administradores podem alterá-los.
+Depois disso, um administrador pode informar nome, e-mail e perfil na aplicação. O usuário receberá um código de convite, abrirá **Primeiro acesso / cadastrar senha** na tela inicial, validará o código e criará a própria senha. Não é gerada nem enviada uma senha automática. Os perfis continuam protegidos por RLS e somente administradores podem alterá-los.
+
+O modelo de convite não usa `ConfirmationURL`: o botão do e-mail apenas abre o aplicativo e o código é consumido somente após a confirmação manual. Essa configuração evita que scanners de segurança invalidem o convite antes do usuário.
 
 Nunca coloque a chave secreta do projeto, credenciais de banco ou tokens em `app-config.js`. A chave publicável existe para uso no navegador; a segurança efetiva é aplicada pelas políticas RLS.
 

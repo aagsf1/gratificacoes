@@ -21,13 +21,14 @@ export async function requestPasswordReset(email) {
   if (error) throw error;
 }
 
-export async function verifyRecoveryCode(email, token) {
+export async function verifyAccessCode(email, token, type = "recovery") {
   const supabase = getSupabase();
   if (!supabase) throw new Error("Configure o Supabase em app-config.js.");
+  if (!["invite", "recovery"].includes(type)) throw new Error("Tipo de código de acesso inválido.");
   const { data, error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
     token: token.trim(),
-    type: "recovery",
+    type,
   });
   if (error) throw error;
   return data;

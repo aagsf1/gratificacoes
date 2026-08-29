@@ -1,5 +1,5 @@
 import { isConfigured } from "./app-config.js";
-import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyRecoveryCode } from "./auth.js";
+import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js";
 import { inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js";
 import { decimal4, fromDecimal4, summarize, summarizeCsjt } from "./calc.js";
 
@@ -48,7 +48,8 @@ let reportView = "custom";
 const authRedirect = new URLSearchParams(window.location.hash.slice(1));
 const authQuery = new URLSearchParams(window.location.search);
 let passwordRecoveryPending = ["recovery", "invite"].includes(authRedirect.get("type"));
-let recoveryCodePending = authQuery.get("recovery") === "1";
+let accessCodeType = authQuery.get("invite") === "1" ? "invite" : "recovery";
+let recoveryCodePending = authQuery.get("recovery") === "1" || authQuery.get("invite") === "1";
 
 function toast(message, error = false) {
   const element = $("#toast");
@@ -72,7 +73,7 @@ function handleAuthRedirectError() {
   if (!authRedirect.has("error")) return false;
   const code = authRedirect.get("error_code");
   const message = code === "otp_expired"
-    ? "Este link de recuperação expirou ou já foi utilizado. Solicite um novo link e abra somente o e-mail mais recente."
+    ? "Este link expirou ou já foi utilizado. No primeiro acesso, use o código do convite; na recuperação, solicite um novo código."
     : "Não foi possível validar o link de autenticação. Solicite um novo link e tente novamente.";
   showAuthMessage(message);
   clearAuthRedirect();
@@ -89,12 +90,19 @@ function showPasswordRecovery() {
   $("#new-password").focus();
 }
 
-function showRecoveryCode(email = "") {
+function showRecoveryCode(email = "", type = accessCodeType) {
+  accessCodeType = type === "invite" ? "invite" : "recovery";
   recoveryCodePending = true;
   $("#login-view").hidden = true;
   $("#password-recovery-view").hidden = true;
   $("#app-view").hidden = true;
   $("#recovery-code-view").hidden = false;
+  const firstAccess = accessCodeType === "invite";
+  $("#access-code-eyebrow").textContent = firstAccess ? "Primeiro acesso" : "Recuperação de acesso";
+  $("#access-code-title").textContent = firstAccess ? "Cadastre sua primeira senha" : "Confirme o código";
+  $("#access-code-description").textContent = firstAccess
+    ? "Informe seu e-mail e o código recebido no convite. Depois da confirmação, você criará sua própria senha."
+    : "Digite o código de recuperação recebido por e-mail. Ele só será utilizado quando você confirmar este formulário.";
   $("#recovery-email").value = email;
   (email ? $("#recovery-code") : $("#recovery-email")).focus();
 }
@@ -342,18 +350,22 @@ async function reload() { state.data = await loadApplicationData(); renderAll();
 
 function bindEvents() {
   $("#login-form").addEventListener("submit", async event => { event.preventDefault(); try { await signIn(event.target.email.value, event.target.password.value); await start(); } catch (error) { toast(error.message, true); } });
-  $("#reset-password").addEventListener("click", async () => { const email = $("#email").value; if (!email) return toast("Informe seu e-mail.", true); try { await requestPasswordReset(email); showRecoveryCode(email); toast("Código enviado. Consulte o e-mail mais recente."); } catch (error) { toast(error.message, true); } });
+  $("#first-access").addEventListener("click", () => showRecoveryCode($("#email").value, "invite"));
+  $("#reset-password").addEventListener("click", async event => { const email = $("#email").value; if (!email) return toast("Informe seu e-mail.", true); event.currentTarget.disabled = true; try { await requestPasswordReset(email); showRecoveryCode(email, "recovery"); toast("Código enviado. Consulte o e-mail mais recente."); } catch (error) { toast(error.message, true); } finally { event.currentTarget.disabled = false; } });
   $("#recovery-code-form").addEventListener("submit", async event => {
     event.preventDefault();
     const button = event.submitter;
     button.disabled = true;
     try {
-      await verifyRecoveryCode(event.target.email.value, event.target.code.value);
+      await verifyAccessCode(event.target.email.value, event.target.code.value, accessCodeType);
       clearAuthRedirect(true);
       showPasswordRecovery();
-      toast("Código confirmado. Defina sua nova senha.");
+      toast(accessCodeType === "invite" ? "Convite confirmado. Defina sua primeira senha." : "Código confirmado. Defina sua nova senha.");
     } catch (error) {
-      toast(error.code === "otp_expired" ? "Código inválido ou expirado. Solicite um novo código." : error.message, true);
+      const expiredMessage = accessCodeType === "invite"
+        ? "Código de convite inválido ou expirado. Solicite um novo convite ao administrador."
+        : "Código inválido ou expirado. Solicite um novo código.";
+      toast(error.code === "otp_expired" ? expiredMessage : error.message, true);
     } finally { button.disabled = false; }
   });
   $("#cancel-recovery").addEventListener("click", showLogin);
@@ -392,7 +404,7 @@ function bindEvents() {
       await inviteUser(form.get("nome"), form.get("email"), form.get("role"));
       event.target.reset();
       await reload();
-      toast("Usuário cadastrado. Convite enviado por e-mail.");
+      toast("Usuário cadastrado. Código de primeiro acesso enviado por e-mail.");
     } catch (error) { toast(error.message, true); }
     finally { button.disabled = false; }
   });
@@ -421,6 +433,6 @@ else {
   onAuthStateChange((event, session) => {
     if (event === "PASSWORD_RECOVERY" || (passwordRecoveryPending && session)) showPasswordRecovery();
   });
-  if (recoveryCodePending) showRecoveryCode();
+  if (recoveryCodePending) showRecoveryCode("", accessCodeType);
   if (!passwordRecoveryPending && !recoveryCodePending) start().catch(error => toast(error.message, true));
 }

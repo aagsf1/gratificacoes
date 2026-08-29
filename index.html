@@ -21,6 +21,7 @@
       <label>E-mail<input id="email" name="email" type="email" autocomplete="username" required></label>
       <label>Senha<input id="password" name="password" type="password" autocomplete="current-password" required></label>
       <button type="submit">Entrar</button>
+      <button id="first-access" class="link-button" type="button">Primeiro acesso / cadastrar senha</button>
       <button id="reset-password" class="link-button" type="button">Esqueci minha senha</button>
       <p id="auth-message" class="warning" role="alert" hidden></p>
       <p id="setup-warning" class="warning" hidden>Configure a URL e a chave publicável do Supabase em <code>app-config.js</code>.</p>
@@ -29,11 +30,11 @@
 
   <main id="recovery-code-view" class="login-shell" hidden>
     <form id="recovery-code-form" class="login-card">
-      <p class="eyebrow">Recuperação de acesso</p>
-      <h1>Confirme o código</h1>
-      <p class="muted">Digite o código recebido por e-mail. Ele só será utilizado quando você confirmar este formulário.</p>
+      <p id="access-code-eyebrow" class="eyebrow">Recuperação de acesso</p>
+      <h1 id="access-code-title">Confirme o código</h1>
+      <p id="access-code-description" class="muted">Digite o código recebido por e-mail. Ele só será utilizado quando você confirmar este formulário.</p>
       <label>E-mail<input id="recovery-email" name="email" type="email" autocomplete="email" required></label>
-      <label>Código de recuperação<input id="recovery-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" minlength="6" maxlength="10" required></label>
+      <label>Código de acesso<input id="recovery-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" minlength="6" maxlength="10" required></label>
       <button type="submit">Validar código</button>
       <button id="cancel-recovery" class="link-button" type="button">Voltar ao login</button>
     </form>
@@ -112,7 +113,7 @@
       <section id="administracao" class="view">
         <div class="panel">
           <h2>Cadastrar usuário</h2>
-          <p class="muted">O usuário receberá um convite por e-mail para cadastrar a própria senha.</p>
+          <p class="muted">O usuário receberá um código de convite e cadastrará a própria senha pela opção “Primeiro acesso”.</p>
           <form id="user-form" class="toolbar">
             <label>Nome<input name="nome" autocomplete="name" required></label>
             <label>E-mail<input name="email" type="email" autocomplete="email" required></label>
