@@ -53,3 +53,12 @@ export async function updateProfile(id, role, ativo) {
   const { error } = await db().from("profiles").update({ role, ativo }).eq("id", id);
   if (error) throw error;
 }
+
+export async function inviteUser(nome, email, role) {
+  const { data, error } = await db().functions.invoke("invite-user", {
+    body: { nome: nome.trim(), email: email.trim().toLowerCase(), role },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data;
+}

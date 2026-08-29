@@ -5,6 +5,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 ## Funcionalidades
 
 - Supabase Auth com recuperação de senha;
+- cadastro de usuários por convite, disponível somente para administradores;
 - perfis `admin`, `gestor`, `consulta` e `auditor`;
 - RLS no PostgreSQL e trilha de auditoria imutável para usuários do app;
 - cadastro e inativação de gratificações por `admin` e `gestor`;
@@ -21,6 +22,21 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 5. Promova-o com o comando comentado ao final de `supabase-setup.sql`.
 6. Copie a URL do projeto e a chave **publishable/anon** para `app-config.js`.
 7. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
+
+## Cadastro de usuários pela aplicação
+
+O formulário em **Administração** usa a Edge Function `invite-user`. Ela mantém a operação administrativa no Supabase e nunca envia a chave secreta ao navegador.
+
+Na primeira configuração, publique a função com a CLI do Supabase:
+
+```sh
+supabase login
+supabase link --project-ref wiollbxstffanegwdiod
+supabase secrets set SITE_URL=https://aagsf1.github.io/gratificacoes/
+supabase functions deploy invite-user
+```
+
+Depois disso, um administrador pode informar nome, e-mail e perfil na aplicação. O usuário receberá um convite e cadastrará a própria senha. Os perfis continuam protegidos por RLS e somente administradores podem alterá-los.
 
 Nunca coloque a chave secreta do projeto, credenciais de banco ou tokens em `app-config.js`. A chave publicável existe para uso no navegador; a segurança efetiva é aplicada pelas políticas RLS.
 

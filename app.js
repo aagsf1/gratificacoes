@@ -1,6 +1,6 @@
 import { isConfigured } from "./app-config.js";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword } from "./auth.js";
-import { inactivateGrant, loadApplicationData, saveGrant, updateProfile } from "./data-service.js";
+import { inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js";
 import { fromDecimal4, summarize } from "./calc.js";
 
 const state = { identity: null, data: null, summary: null };
@@ -11,7 +11,7 @@ const dateTime = value => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: 
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const canWrite = () => ["admin", "gestor"].includes(state.identity?.profile.role);
 const authRedirect = new URLSearchParams(window.location.hash.slice(1));
-let passwordRecoveryPending = authRedirect.get("type") === "recovery";
+let passwordRecoveryPending = ["recovery", "invite"].includes(authRedirect.get("type"));
 
 function toast(message, error = false) {
   const element = $("#toast");
@@ -170,6 +170,19 @@ function bindEvents() {
   $("#grants-table").addEventListener("click", async event => { const edit = event.target.dataset.edit; const remove = event.target.dataset.delete; if (edit) openGrant(edit); if (remove && confirm("Inativar esta gratificação?")) { try { await inactivateGrant(remove); await reload(); toast("Gratificação inativada."); } catch (error) { toast(error.message, true); } } });
   $("#grant-form").addEventListener("submit", async event => { event.preventDefault(); const form = new FormData(event.target); const record = Object.fromEntries(form); record.com_vinculo = record.com_vinculo === "true"; record.cenario_id = event.target.dataset.scenarioId; try { await saveGrant(record); $("#grant-dialog").close(); await reload(); toast("Gratificação salva."); } catch (error) { toast(error.message, true); } });
   $("#profiles-table").addEventListener("click", async event => { const id = event.target.dataset.saveProfile; if (!id) return; const row = event.target.closest("tr"); try { await updateProfile(id, row.querySelector('[data-field=role]').value, row.querySelector('[data-field=ativo]').checked); await reload(); toast("Perfil atualizado."); } catch (error) { toast(error.message, true); } });
+  $("#user-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = new FormData(event.target);
+    const button = event.submitter;
+    button.disabled = true;
+    try {
+      await inviteUser(form.get("nome"), form.get("email"), form.get("role"));
+      event.target.reset();
+      await reload();
+      toast("Usuário cadastrado. Convite enviado por e-mail.");
+    } catch (error) { toast(error.message, true); }
+    finally { button.disabled = false; }
+  });
   $("#export-csv").addEventListener("click", () => { const fields = ["tipo_codigo","servidor_nome","unidade_nome","unidade_sigla","com_vinculo","situacao","valor_pago"]; const csv = [fields.join(";"), ...reportRows().map(row => fields.map(field => `"${String(row[field] ?? "").replaceAll('"','""')}"`).join(";"))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); link.download = "gratificacoes.csv"; link.click(); URL.revokeObjectURL(link.href); });
   $("#print-report").addEventListener("click", () => window.print());
 }

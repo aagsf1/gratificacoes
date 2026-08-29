@@ -29,7 +29,7 @@
   <main id="password-recovery-view" class="login-shell" hidden>
     <form id="password-recovery-form" class="login-card">
       <p class="eyebrow">Recuperação de acesso</p>
-      <h1>Cadastre uma nova senha</h1>
+      <h1>Cadastre sua senha</h1>
       <p class="muted">Use pelo menos 8 caracteres e não reutilize uma senha antiga.</p>
       <label>Nova senha<input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required></label>
       <label>Confirme a nova senha<input name="confirmation" type="password" autocomplete="new-password" minlength="8" required></label>
@@ -64,7 +64,19 @@
       <section id="csjt" class="view"><div class="panel"><h2>Quadro CSJT — situação proposta</h2><p class="muted">Valores preservam quatro casas decimais.</p><div class="table-wrap"><table id="csjt-table"></table></div><div id="csjt-totals" class="cards compact"></div></div></section>
       <section id="relatorios" class="view"><div class="panel"><h2>Relatório customizável</h2><div class="toolbar"><select id="report-type"><option value="">Todas as CJs</option></select><select id="report-situation"><option value="">Todas as situações</option></select><button id="export-csv">Exportar CSV</button><button id="print-report" class="secondary">Imprimir / PDF</button></div><div class="table-wrap"><table id="report-table"></table></div></div></section>
       <section id="auditoria" class="view"><div class="panel"><h2>Trilha de auditoria</h2><div class="table-wrap"><table id="audit-table"></table></div></div></section>
-      <section id="administracao" class="view"><div class="panel"><h2>Perfis de acesso</h2><p class="muted">Usuários são criados no Supabase Auth; aqui o administrador define papel e situação.</p><div class="table-wrap"><table id="profiles-table"></table></div></div></section>
+      <section id="administracao" class="view">
+        <div class="panel">
+          <h2>Cadastrar usuário</h2>
+          <p class="muted">O usuário receberá um convite por e-mail para cadastrar a própria senha.</p>
+          <form id="user-form" class="toolbar">
+            <label>Nome<input name="nome" autocomplete="name" required></label>
+            <label>E-mail<input name="email" type="email" autocomplete="email" required></label>
+            <label>Perfil<select name="role" required><option value="consulta">consulta</option><option value="gestor">gestor</option><option value="auditor">auditor</option><option value="admin">admin</option></select></label>
+            <button type="submit">Cadastrar e enviar convite</button>
+          </form>
+        </div>
+        <div class="panel"><h2>Perfis de acesso</h2><p class="muted">Altere o perfil ou inative o acesso de um usuário cadastrado.</p><div class="table-wrap"><table id="profiles-table"></table></div></div>
+      </section>
     </main>
   </div>
 
