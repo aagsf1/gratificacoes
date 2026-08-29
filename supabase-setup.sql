@@ -63,6 +63,15 @@ create table public.audit_logs (
   new_data jsonb,
   created_at timestamptz not null default now()
 );
+create table public.user_presence (
+  session_id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  current_view text not null default 'dashboard'
+    check (current_view in ('dashboard','gratificacoes','relatorios','auditoria','administracao')),
+  connected_at timestamptz not null default now(),
+  last_seen timestamptz not null default now()
+);
+create index user_presence_last_seen_idx on public.user_presence(last_seen desc);
 
 create function public.current_role() returns public.app_role language sql stable security definer set search_path=public as $$
   select role from public.profiles where id = auth.uid() and ativo;
@@ -117,6 +126,7 @@ alter table public.tipos_gratificacao enable row level security;
 alter table public.cenarios enable row level security;
 alter table public.gratificacoes enable row level security;
 alter table public.audit_logs enable row level security;
+alter table public.user_presence enable row level security;
 
 create policy profiles_self_select on public.profiles for select using (id=auth.uid() or public.is_admin());
 create policy profiles_admin_update on public.profiles for update using (public.is_admin()) with check (public.is_admin());
@@ -128,20 +138,15 @@ create policy gratificacoes_read on public.gratificacoes for select using (publi
 create policy gratificacoes_insert on public.gratificacoes for insert with check (public.is_writer());
 create policy gratificacoes_update on public.gratificacoes for update using (public.is_writer()) with check (public.is_writer());
 create policy audit_read on public.audit_logs for select using (public.current_role() in ('admin','auditor'));
-
--- Canal privado usado para exibir, somente aos administradores, quem está com o aplicativo aberto.
-create policy presence_active_user_track on realtime.messages for insert to authenticated
-with check (
-  realtime.messages.extension = 'presence'
-  and realtime.topic() = 'online-users'
-  and public.is_reader()
-);
-create policy presence_admin_read on realtime.messages for select to authenticated
-using (
-  realtime.messages.extension = 'presence'
-  and realtime.topic() = 'online-users'
-  and public.is_admin()
-);
+create policy user_presence_read on public.user_presence for select to authenticated
+  using (user_id=auth.uid() or public.is_admin());
+create policy user_presence_insert on public.user_presence for insert to authenticated
+  with check (user_id=auth.uid() and public.is_reader());
+create policy user_presence_update on public.user_presence for update to authenticated
+  using (user_id=auth.uid() and public.is_reader())
+  with check (user_id=auth.uid() and public.is_reader());
+create policy user_presence_delete on public.user_presence for delete to authenticated
+  using (user_id=auth.uid());
 
 revoke all on public.audit_logs from anon,authenticated;
 grant select on public.profiles,public.tipos_gratificacao,public.cenarios,public.gratificacoes to authenticated;
@@ -150,6 +155,7 @@ grant update on public.profiles to authenticated;
 grant insert,update,delete on public.tipos_gratificacao,public.cenarios to authenticated;
 grant select on public.audit_logs to authenticated;
 grant select on public.gratificacoes_detalhadas to authenticated;
+grant select,insert,update,delete on public.user_presence to authenticated;
 
 insert into public.tipos_gratificacao(codigo,descricao,valor_integral,percentual_com_vinculo) values
 ('CJ-01','Cargo em comissão CJ-01',11870.0000,.6500),

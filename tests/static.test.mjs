@@ -57,11 +57,13 @@ assert.match(deleteFunction, /userId === authData\.user\.id/, "O administrador n
 assert.match(deleteFunction, /último administrador ativo não pode ser excluído/, "O último administrador ativo deve ser preservado");
 assert.match(deleteFunction, /\.from\("audit_logs"\)\.insert/, "A exclusão deve ser registrada na auditoria");
 const presence = await readFile(resolve(root, "presence.js"), "utf8");
-assert.match(presence, /private:\s*true[\s\S]*presence:\s*\{ key:/, "A presença deve usar canal privado e chave por usuário");
-assert.match(presence, /event:\s*"sync"[\s\S]*presenceState\(\)/, "A lista online deve acompanhar as sincronizações do Presence");
+assert.match(presence, /from\("user_presence"\)\.upsert/, "Cada sessão deve publicar heartbeat na tabela de presença");
+assert.match(presence, /ONLINE_WINDOW_MS[\s\S]*\.gte\("last_seen", cutoff\)/, "A lista deve ignorar sessões sem heartbeat recente");
+assert.match(presence, /identity\.profile\.role === "admin"/, "Somente o cliente administrador deve consultar a lista completa");
 const adminMigration = await readFile(resolve(root, "supabase-admin-presence-migration.sql"), "utf8");
 assert.match(adminMigration, /on delete set null/gi, "A exclusão deve preservar referências históricas");
-assert.match(adminMigration, /presence_admin_read[\s\S]*public\.is_admin\(\)/, "Somente administradores podem ler o canal de presença");
-assert.match(adminMigration, /presence_active_user_track[\s\S]*public\.is_reader\(\)/, "Somente usuários ativos podem publicar presença");
+assert.match(adminMigration, /user_presence_read[\s\S]*public\.is_admin\(\)/, "Somente administradores podem ler a presença de outros usuários");
+assert.match(adminMigration, /user_presence_insert[\s\S]*user_id = auth\.uid\(\)[\s\S]*public\.is_reader\(\)/, "Somente usuários ativos podem publicar a própria presença");
+assert.match(adminMigration, /drop policy if exists presence_active_user_track on realtime\.messages/, "A política defeituosa do canal Realtime deve ser removida");
 assert.match(combined, /Deno\.env\.get\("SUPABASE_SERVICE_ROLE_KEY"\)/, "A função deve obter a chave administrativa somente do ambiente protegido");
 console.log(`Referências estáticas validadas: ${refs.join(", ")}.`);

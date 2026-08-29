@@ -1,4 +1,4 @@
-import { APP_CONFIG, isConfigured } from "./app-config.js?v=20260829-admin";
+import { APP_CONFIG, isConfigured } from "./app-config.js?v=20260829-presence-v2";
 
 let client;
 

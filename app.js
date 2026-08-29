@@ -2,7 +2,7 @@ import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
 import { deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js?v=20260829-admin";
 import { decimal4, fromDecimal4, summarize, summarizeCsjt } from "./calc.js?v=20260829-admin";
-import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-admin";
+import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v2";
 
 const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting" };
 const $ = selector => document.querySelector(selector);

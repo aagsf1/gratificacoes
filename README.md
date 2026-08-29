@@ -7,7 +7,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 - Supabase Auth com primeiro acesso e recuperação de senha por códigos digitados manualmente, resistentes ao consumo antecipado por scanners de e-mail;
 - cadastro de usuários por convite, disponível somente para administradores;
 - exclusão administrativa de usuários com confirmação reforçada, proteção contra autoexclusão e preservação do último administrador;
-- painel de usuários online por Supabase Realtime Presence em canal privado;
+- painel de usuários online por heartbeat protegido por RLS;
 - perfis `admin`, `gestor`, `consulta` e `auditor`;
 - RLS no PostgreSQL e trilha de auditoria imutável para usuários do app;
 - cadastro e inativação de gratificações por `admin` e `gestor`;
@@ -28,7 +28,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 7. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
 8. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
 9. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
-10. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql` para habilitar a exclusão segura e as políticas do canal de presença.
+10. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql` para habilitar a exclusão segura e a tabela de presença.
 
 ## Cadastro de usuários pela aplicação
 
@@ -52,7 +52,7 @@ O modelo de convite não usa `ConfirmationURL`: o botão do e-mail apenas abre o
 
 A exclusão permanente é executada exclusivamente pela Edge Function `delete-user`, depois de validar novamente a sessão e o perfil do administrador. A aplicação impede a autoexclusão e a remoção do último administrador ativo. A operação exige que o administrador digite o e-mail do usuário e é registrada em `audit_logs`.
 
-O quadro **Usuários online agora** usa um canal privado do Realtime Presence. Somente usuários ativos podem publicar presença e apenas administradores podem receber a lista. “Online” significa que a aplicação está aberta e conectada, não apenas que existe uma sessão Auth ainda válida. A lista é informativa e não é usada para decisões de autorização.
+O quadro **Usuários online agora** usa heartbeats na tabela `user_presence`. Cada aba autenticada pode gravar e remover somente a própria sessão; apenas administradores podem consultar as sessões dos demais usuários. Uma sessão é considerada online enquanto seu heartbeat tiver menos de 90 segundos. “Online” significa que a aplicação está aberta e ativa, não apenas que existe uma sessão Auth ainda válida. A lista é informativa e não é usada para decisões de autorização.
 
 Nunca coloque a chave secreta do projeto, credenciais de banco ou tokens em `app-config.js`. A chave publicável existe para uso no navegador; a segurança efetiva é aplicada pelas políticas RLS.
 

@@ -1,70 +1,114 @@
-import { getSupabase } from "./supabase-client.js?v=20260829-admin";
+import { getSupabase } from "./supabase-client.js?v=20260829-presence-v2";
 
-let channel;
-let subscribed = false;
+const HEARTBEAT_INTERVAL_MS = 25_000;
+const ONLINE_WINDOW_MS = 90_000;
+const ADMIN_REFRESH_MS = 10_000;
+
+let heartbeatTimer;
+let refreshTimer;
+let sessionId;
 let currentPayload;
 let syncCallback;
 let statusCallback;
+let canListUsers = false;
+let heartbeatInFlight = false;
 
-export function consolidatedPresence(presenceState) {
+export function consolidatedPresence(rows, now = Date.now(), onlineWindowMs = ONLINE_WINDOW_MS) {
   const users = new Map();
-  for (const entries of Object.values(presenceState ?? {})) {
-    for (const entry of entries) {
-      if (!entry?.user_id) continue;
-      const previous = users.get(entry.user_id);
-      const onlineAt = entry.online_at || new Date().toISOString();
-      users.set(entry.user_id, {
-        userId: entry.user_id,
-        onlineAt: previous?.onlineAt && previous.onlineAt < onlineAt ? previous.onlineAt : onlineAt,
-        currentView: entry.current_view || previous?.currentView || "dashboard",
-        connections: (previous?.connections ?? 0) + 1,
-      });
-    }
+  for (const row of rows ?? []) {
+    const lastSeen = Date.parse(row?.last_seen);
+    if (!row?.user_id || !Number.isFinite(lastSeen) || now - lastSeen > onlineWindowMs) continue;
+    const previous = users.get(row.user_id);
+    const onlineAt = row.connected_at || row.last_seen;
+    users.set(row.user_id, {
+      userId: row.user_id,
+      onlineAt: previous?.onlineAt && previous.onlineAt < onlineAt ? previous.onlineAt : onlineAt,
+      currentView: lastSeen >= (previous?.lastSeen ?? 0) ? (row.current_view || "dashboard") : previous.currentView,
+      connections: (previous?.connections ?? 0) + 1,
+      lastSeen: Math.max(previous?.lastSeen ?? 0, lastSeen),
+    });
   }
-  return [...users.values()].sort((a, b) => a.onlineAt.localeCompare(b.onlineAt));
+  return [...users.values()]
+    .sort((a, b) => a.onlineAt.localeCompare(b.onlineAt))
+    .map(({ lastSeen: _lastSeen, ...entry }) => entry);
+}
+
+async function refreshOnlineUsers() {
+  if (!canListUsers) return;
+  const cutoff = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+  const { data, error } = await getSupabase()
+    .from("user_presence")
+    .select("session_id,user_id,current_view,connected_at,last_seen")
+    .gte("last_seen", cutoff)
+    .order("connected_at", { ascending: true });
+  if (error) throw error;
+  syncCallback?.(consolidatedPresence(data));
+}
+
+async function heartbeat() {
+  if (!currentPayload || heartbeatInFlight || document.visibilityState === "hidden") return;
+  heartbeatInFlight = true;
+  try {
+    const { error } = await getSupabase().from("user_presence").upsert({
+      ...currentPayload,
+      last_seen: new Date().toISOString(),
+    }, { onConflict: "session_id" });
+    if (error) throw error;
+    await refreshOnlineUsers();
+    statusCallback?.("connected");
+  } catch (error) {
+    console.error("Falha ao registrar presença:", error);
+    statusCallback?.("error");
+  } finally {
+    heartbeatInFlight = false;
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") void heartbeat();
 }
 
 export function startPresence(identity, onSync, onStatus) {
-  const supabase = getSupabase();
-  if (!supabase || channel) return;
+  if (!getSupabase() || currentPayload) return;
   syncCallback = onSync;
   statusCallback = onStatus;
+  canListUsers = identity.profile.role === "admin";
+  sessionId = crypto.randomUUID();
   currentPayload = {
+    session_id: sessionId,
     user_id: identity.session.user.id,
-    online_at: new Date().toISOString(),
+    connected_at: new Date().toISOString(),
     current_view: "dashboard",
   };
-  channel = supabase.channel("online-users", {
-    config: { private: true, presence: { key: identity.session.user.id } },
-  });
-  channel
-    .on("presence", { event: "sync" }, () => {
-      syncCallback?.(consolidatedPresence(channel.presenceState()));
-    })
-    .subscribe(async status => {
-      if (status === "SUBSCRIBED") {
-        subscribed = true;
-        const result = await channel.track(currentPayload);
-        statusCallback?.(result === "ok" ? "connected" : "error");
-      } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
-        subscribed = false;
-        statusCallback?.("error");
-      }
-    });
+  statusCallback?.("connecting");
+  void heartbeat();
+  heartbeatTimer = window.setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
+  if (canListUsers) refreshTimer = window.setInterval(() => void refreshOnlineUsers().catch(error => {
+    console.error("Falha ao consultar usuários online:", error);
+    statusCallback?.("error");
+  }), ADMIN_REFRESH_MS);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("online", heartbeat);
 }
 
 export async function updatePresence(currentView) {
-  if (!channel || !subscribed || !currentPayload) return;
+  if (!currentPayload) return;
   currentPayload = { ...currentPayload, current_view: currentView };
-  await channel.track(currentPayload);
+  await heartbeat();
 }
 
 export async function stopPresence() {
-  if (!channel) return;
-  const supabase = getSupabase();
-  if (subscribed) await channel.untrack();
-  await supabase?.removeChannel(channel);
-  channel = undefined;
-  subscribed = false;
+  window.clearInterval(heartbeatTimer);
+  window.clearInterval(refreshTimer);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  window.removeEventListener("online", heartbeat);
+  const id = sessionId;
+  heartbeatTimer = undefined;
+  refreshTimer = undefined;
+  sessionId = undefined;
   currentPayload = undefined;
+  syncCallback = undefined;
+  statusCallback = undefined;
+  canListUsers = false;
+  if (id) await getSupabase()?.from("user_presence").delete().eq("session_id", id);
 }
