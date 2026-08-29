@@ -1,5 +1,5 @@
 import { isConfigured } from "./app-config.js";
-import { currentIdentity, requestPasswordReset, signIn, signOut } from "./auth.js";
+import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword } from "./auth.js";
 import { inactivateGrant, loadApplicationData, saveGrant, updateProfile } from "./data-service.js";
 import { fromDecimal4, summarize } from "./calc.js";
 
@@ -10,6 +10,8 @@ const money = (value, digits = 2) => new Intl.NumberFormat("pt-BR", { style: "cu
 const dateTime = value => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium" }).format(new Date(value)) : "—";
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const canWrite = () => ["admin", "gestor"].includes(state.identity?.profile.role);
+const authRedirect = new URLSearchParams(window.location.hash.slice(1));
+let passwordRecoveryPending = authRedirect.get("type") === "recovery";
 
 function toast(message, error = false) {
   const element = $("#toast");
@@ -17,6 +19,35 @@ function toast(message, error = false) {
   element.style.background = error ? "#9f2d2d" : "#152542";
   element.classList.add("show");
   setTimeout(() => element.classList.remove("show"), 3500);
+}
+
+function showAuthMessage(message) {
+  const element = $("#auth-message");
+  element.textContent = message;
+  element.hidden = false;
+}
+
+function clearAuthRedirect() {
+  history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+}
+
+function handleAuthRedirectError() {
+  if (!authRedirect.has("error")) return false;
+  const code = authRedirect.get("error_code");
+  const message = code === "otp_expired"
+    ? "Este link de recuperação expirou ou já foi utilizado. Solicite um novo link e abra somente o e-mail mais recente."
+    : "Não foi possível validar o link de autenticação. Solicite um novo link e tente novamente.";
+  showAuthMessage(message);
+  clearAuthRedirect();
+  return true;
+}
+
+function showPasswordRecovery() {
+  passwordRecoveryPending = true;
+  $("#login-view").hidden = true;
+  $("#app-view").hidden = true;
+  $("#password-recovery-view").hidden = false;
+  $("#new-password").focus();
 }
 
 function currentScenario() {
@@ -117,7 +148,20 @@ async function reload() { state.data = await loadApplicationData(); renderAll();
 
 function bindEvents() {
   $("#login-form").addEventListener("submit", async event => { event.preventDefault(); try { await signIn(event.target.email.value, event.target.password.value); await start(); } catch (error) { toast(error.message, true); } });
-  $("#reset-password").addEventListener("click", async () => { const email = $("#email").value; if (!email) return toast("Informe seu e-mail.", true); try { await requestPasswordReset(email); toast("Mensagem de recuperação enviada."); } catch (error) { toast(error.message, true); } });
+  $("#reset-password").addEventListener("click", async () => { const email = $("#email").value; if (!email) return toast("Informe seu e-mail.", true); try { await requestPasswordReset(email); toast("Mensagem enviada. Abra somente o link do e-mail mais recente."); } catch (error) { toast(error.message, true); } });
+  $("#password-recovery-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const { password, confirmation } = event.target.elements;
+    if (password.value !== confirmation.value) return toast("As senhas informadas não são iguais.", true);
+    try {
+      await updatePassword(password.value);
+      passwordRecoveryPending = false;
+      clearAuthRedirect();
+      $("#password-recovery-view").hidden = true;
+      toast("Senha atualizada com sucesso.");
+      await start();
+    } catch (error) { toast(error.message, true); }
+  });
   $("#logout").addEventListener("click", async () => { await signOut(); location.reload(); });
   $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; }));
   $("#new-grant").addEventListener("click", () => openGrant());
@@ -131,6 +175,7 @@ function bindEvents() {
 }
 
 async function start() {
+  if (passwordRecoveryPending) return;
   state.identity = await currentIdentity();
   if (!state.identity) return;
   state.data = await loadApplicationData();
@@ -144,4 +189,10 @@ async function start() {
 
 bindEvents();
 if (!isConfigured()) $("#setup-warning").hidden = false;
-else start().catch(error => toast(error.message, true));
+else {
+  handleAuthRedirectError();
+  onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY" || (passwordRecoveryPending && session)) showPasswordRecovery();
+  });
+  if (!passwordRecoveryPending) start().catch(error => toast(error.message, true));
+}

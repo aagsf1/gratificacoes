@@ -16,9 +16,17 @@ export async function signOut() {
 export async function requestPasswordReset(email) {
   const supabase = getSupabase();
   if (!supabase) throw new Error("Configure o Supabase em app-config.js.");
-  const redirectTo = new URL("./", window.location.href).href;
+  const redirectTo = new URL(window.location.pathname, window.location.origin).href;
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) throw error;
+}
+
+export async function updatePassword(password) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("Configure o Supabase em app-config.js.");
+  const { data, error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+  return data;
 }
 
 export async function currentIdentity() {
@@ -37,5 +45,5 @@ export async function currentIdentity() {
 }
 
 export function onAuthStateChange(callback) {
-  return getSupabase()?.auth.onAuthStateChange((_event, session) => callback(session));
+  return getSupabase()?.auth.onAuthStateChange((event, session) => callback(event, session));
 }

@@ -20,7 +20,19 @@
       <label>Senha<input id="password" name="password" type="password" autocomplete="current-password" required></label>
       <button type="submit">Entrar</button>
       <button id="reset-password" class="link-button" type="button">Esqueci minha senha</button>
+      <p id="auth-message" class="warning" role="alert" hidden></p>
       <p id="setup-warning" class="warning" hidden>Configure a URL e a chave publicável do Supabase em <code>app-config.js</code>.</p>
+    </form>
+  </main>
+
+  <main id="password-recovery-view" class="login-shell" hidden>
+    <form id="password-recovery-form" class="login-card">
+      <p class="eyebrow">Recuperação de acesso</p>
+      <h1>Cadastre uma nova senha</h1>
+      <p class="muted">Use pelo menos 8 caracteres e não reutilize uma senha antiga.</p>
+      <label>Nova senha<input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>Confirme a nova senha<input name="confirmation" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button type="submit">Salvar nova senha</button>
     </form>
   </main>
 
