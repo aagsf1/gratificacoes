@@ -46,7 +46,7 @@ async function refreshOnlineUsers() {
 }
 
 async function heartbeat() {
-  if (!currentPayload || heartbeatInFlight || document.visibilityState === "hidden") return;
+  if (!currentPayload || heartbeatInFlight) return;
   heartbeatInFlight = true;
   try {
     const { error } = await getSupabase().from("user_presence").upsert({
