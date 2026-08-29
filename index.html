@@ -56,8 +56,8 @@
       <nav aria-label="Menu principal">
         <button data-view="dashboard" class="active">Dashboard</button>
         <button data-view="gratificacoes">Gratificações</button>
-        <button data-view="csjt">Quadro CSJT</button>
         <button data-view="relatorios">Relatórios</button>
+        <button data-view="relatorios" data-report-view="csjt">Quadro CSJT</button>
         <button data-view="auditoria" data-role="auditor,admin">Auditoria</button>
         <button data-view="administracao" data-role="admin">Administração</button>
       </nav>
@@ -74,35 +74,38 @@
         <div class="toolbar"><input id="search" type="search" placeholder="Pesquisar servidor, unidade ou sigla"><select id="filter-type"><option value="">Todas as CJs</option></select><select id="filter-link"><option value="">Todos os vínculos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></div>
         <div class="panel table-wrap"><table id="grants-table"></table></div>
       </section>
-      <section id="csjt" class="view">
-        <div id="csjt-sheet" class="panel csjt-sheet">
-          <div class="csjt-title-row"><h2>Quadro CSJT</h2><p>Consolidação calculada exclusivamente a partir das gratificações cadastradas na aplicação.</p></div>
-          <section class="csjt-situation" aria-labelledby="csjt-previous-title">
-            <h3 id="csjt-previous-title">Situação Anterior</h3>
-            <p class="csjt-reference">Gratificações ativas identificadas com a situação “ANTIGA”.</p>
-            <div class="table-wrap"><table id="csjt-previous-table" aria-label="Quadro CSJT - Situação Anterior"></table></div>
-          </section>
-          <section class="csjt-situation" aria-labelledby="csjt-current-title">
-            <h3 id="csjt-current-title">Situação Atual</h3>
-            <p class="csjt-reference">Todas as gratificações ativas. Os percentuais aparecem na linha de total.</p>
-            <div class="table-wrap"><table id="csjt-current-table" aria-label="Quadro CSJT - Situação Atual"></table></div>
-          </section>
-        </div>
-      </section>
       <section id="relatorios" class="view">
-        <div class="panel report-panel">
-          <div class="report-heading"><div><h2>Relatório customizável</h2><p class="muted">Inclui gratificações ativas e inativas. Selecione campos e combine filtros.</p></div><div id="report-status" class="report-status" aria-live="polite"></div></div>
-          <div class="report-filters">
-            <label>Pesquisar<input id="report-search" type="search" placeholder="Servidor, unidade, sigla ou observação"></label>
-            <label>Tipo<select id="report-type"><option value="">Todas as CJs</option></select></label>
-            <label>Situação<select id="report-situation"><option value="">Todas as situações</option></select></label>
-            <label>Vínculo<select id="report-link"><option value="">Todos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></label>
-            <label>Status<select id="report-active"><option value="">Ativas e inativas</option><option value="true">Ativas</option><option value="false">Inativas</option></select></label>
-            <label>Unidade<select id="report-unit"><option value="">Todas as unidades</option></select></label>
+        <div class="report-switcher" role="group" aria-label="Tipo de relatório">
+          <button id="show-custom-report" type="button">Relatório customizável</button>
+          <button id="show-csjt-report" class="secondary" type="button">Quadro CSJT</button>
+        </div>
+        <div id="custom-report-view">
+          <div class="panel report-builder">
+            <div class="section-title"><h2>Configuração do relatório</h2><span id="report-status" class="report-badge" aria-live="polite"></span></div>
+            <div class="report-config-grid">
+              <label class="full">Título do relatório<input id="report-title" value="Relatório customizado de gratificações"></label>
+              <fieldset class="report-fields full"><legend>Campos exibidos</legend><div id="report-field-options"></div></fieldset>
+              <label>Pesquisa textual<input id="report-search" type="search" placeholder="Servidor, unidade, sigla..."></label>
+              <label>Tipo<select id="report-type"><option value="">Todos</option></select></label>
+              <label>Vínculo<select id="report-link"><option value="">Todos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></label>
+              <label>Situação<select id="report-situation"><option value="">Todas</option></select></label>
+              <label>Unidade / sigla<select id="report-unit"><option value="">Todas</option></select></label>
+              <label>Status<select id="report-active"><option value="">Ativas e inativas</option><option value="true">Ativas</option><option value="false">Inativas</option></select></label>
+              <label>Agrupar por<select id="report-group"><option value="">Sem agrupamento</option></select></label>
+              <label>Ordenar por<select id="report-order"></select></label>
+              <label>Direção<select id="report-direction"><option value="asc">Crescente</option><option value="desc">Decrescente</option></select></label>
+            </div>
+            <div class="report-actions"><button id="reset-report" class="secondary" type="button">Restaurar configuração</button><span></span><button id="export-csv" class="secondary" type="button">Exportar CSV</button><button id="print-report" class="secondary" type="button">Imprimir / PDF</button></div>
           </div>
-          <fieldset class="report-fields"><legend>Campos do relatório</legend><div id="report-field-options"></div></fieldset>
-          <div class="report-actions"><button id="select-all-fields" class="secondary" type="button">Selecionar todos</button><button id="export-csv" type="button">Exportar CSV</button><button id="print-report" class="secondary" type="button">Imprimir / PDF</button></div>
-          <div class="table-wrap"><table id="report-table"></table></div>
+          <div id="report-output" class="report-output">
+            <div class="report-title"><div><h2 id="report-output-title"></h2><p id="report-generated"></p></div></div>
+            <div id="report-metrics" class="cards report-metrics"></div>
+            <div id="report-results"></div>
+          </div>
+        </div>
+        <div id="csjt-report-view" hidden>
+          <div class="csjt-toolbar"><div><strong>Relatório Quadro CSJT</strong><span id="csjt-competence"></span></div><button id="print-csjt" class="secondary" type="button">Imprimir / PDF</button></div>
+          <div id="csjt-sheet" class="csjt-report" aria-label="Relatório Quadro CSJT"></div>
         </div>
       </section>
       <section id="auditoria" class="view"><div class="panel"><h2>Trilha de auditoria</h2><div class="table-wrap"><table id="audit-table"></table></div></div></section>

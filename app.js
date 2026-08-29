@@ -11,16 +11,40 @@ const dateTime = value => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: 
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const canWrite = () => ["admin", "gestor"].includes(state.identity?.profile.role);
 const REPORT_FIELDS = [
-  { key: "tipo_codigo", label: "Tipo" },
+  { key: "id", label: "ID" },
+  { key: "tipo_codigo", label: "Gratificação", groupable: true },
+  { key: "unidade_nome", label: "Unidade", groupable: true },
   { key: "servidor_nome", label: "Servidor" },
-  { key: "unidade_nome", label: "Unidade" },
-  { key: "unidade_sigla", label: "Sigla" },
-  { key: "com_vinculo", label: "Vínculo", format: row => row.com_vinculo ? "Com vínculo" : "Sem vínculo" },
-  { key: "situacao", label: "Situação" },
+  { key: "com_vinculo", label: "Vínculo", groupable: true, format: row => row.com_vinculo ? "Com vínculo" : "Sem vínculo" },
+  { key: "situacao", label: "Situação", groupable: true },
+  { key: "unidade_sigla", label: "Sigla", groupable: true },
+  { key: "valor_integral", label: "Valor integral", numeric: true, format: row => money(Number(row.valor_integral), 2) },
+  { key: "percentual_aplicado", label: "% aplicado", numeric: true, format: row => `${(row.com_vinculo ? Number(row.percentual_com_vinculo) * 100 : 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%` },
   { key: "valor_pago", label: "Valor pago", numeric: true, format: row => money(Number(row.valor_pago), 4) },
   { key: "observacoes", label: "Observações" },
-  { key: "ativo", label: "Status", format: row => row.ativo ? "Ativa" : "Inativa" },
+  { key: "ativo", label: "Status", groupable: true, format: row => row.ativo ? "Ativa" : "Inativa" },
 ];
+const REPORT_STORAGE = "gratificacoes_report_config_v2";
+const DEFAULT_REPORT_CONFIG = Object.freeze({
+  title: "Relatório customizado de gratificações",
+  fields: ["tipo_codigo", "unidade_sigla", "unidade_nome", "servidor_nome", "com_vinculo", "situacao", "valor_integral", "valor_pago"],
+  search: "", type: "", link: "", situation: "", unit: "", active: "", group: "", order: "unidade_sigla", direction: "asc",
+});
+function loadReportConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(REPORT_STORAGE) || "{}");
+    const keys = new Set(REPORT_FIELDS.map(field => field.key));
+    const groupKeys = new Set(REPORT_FIELDS.filter(field => field.groupable).map(field => field.key));
+    const config = { ...DEFAULT_REPORT_CONFIG, ...saved };
+    config.fields = (Array.isArray(saved.fields) ? saved.fields : DEFAULT_REPORT_CONFIG.fields).filter(key => keys.has(key));
+    if (!groupKeys.has(config.group)) config.group = "";
+    if (!keys.has(config.order)) config.order = DEFAULT_REPORT_CONFIG.order;
+    if (!['asc', 'desc'].includes(config.direction)) config.direction = "asc";
+    return config;
+  } catch { return { ...DEFAULT_REPORT_CONFIG, fields: [...DEFAULT_REPORT_CONFIG.fields] }; }
+}
+let reportConfig = loadReportConfig();
+let reportView = "custom";
 const authRedirect = new URLSearchParams(window.location.hash.slice(1));
 const authQuery = new URLSearchParams(window.location.search);
 let passwordRecoveryPending = ["recovery", "invite"].includes(authRedirect.get("type"));
@@ -129,65 +153,149 @@ function renderGrants() {
   $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canWrite() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago), 4)}</td>${canWrite() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}">Inativar</button></td>` : ""}</tr>`).join("")}</tbody>`;
 }
 
-function csjtTable(summary, showRatios = false) {
-  const values = summary.rows.map(row => {
+function csjtValues(summary) {
+  return summary.rows.map(row => {
     const type = state.data.tipos.find(item => item.codigo === row.codigo);
     const unlinkedPaid4 = decimal4(type.valor_integral) * BigInt(row.unlinked);
     return { row, linkedPaid4: row.paid4 - unlinkedPaid4, unlinkedPaid4 };
   });
-  const body = values.map(({ row, linkedPaid4, unlinkedPaid4 }) => `<tr><th scope="row" class="cargo">${row.codigo}</th><td class="effective">${row.linked}</td><td class="effective">${money(fromDecimal4(linkedPaid4), 4)}</td><td class="unlinked">${row.unlinked}</td><td class="unlinked">${money(fromDecimal4(unlinkedPaid4), 4)}</td><td class="total">${row.count}</td><td class="total">${money(fromDecimal4(row.paid4), 4)}</td></tr>`).join("");
+}
+
+function csjtLine({ row, linkedPaid4, unlinkedPaid4 }) {
+  return `<div class="csjt-row"><div class="csjt-cell green cargo">${row.codigo.replace("CJ-0", "CJ-")}</div><div class="csjt-cell blue">${row.linked}</div><div class="csjt-cell blue money">${money(fromDecimal4(linkedPaid4), 2)}</div><div class="csjt-cell yellow">${row.unlinked}</div><div class="csjt-cell yellow money">${money(fromDecimal4(unlinkedPaid4), 2)}</div><div class="csjt-cell green">${row.count}</div><div class="csjt-cell green money">${money(fromDecimal4(row.paid4), 2)}</div></div>`;
+}
+
+function csjtSection(title, summary, current = false) {
+  const values = csjtValues(summary);
   const linkedPaid4 = values.reduce((sum, item) => sum + item.linkedPaid4, 0n);
   const unlinkedPaid4 = values.reduce((sum, item) => sum + item.unlinkedPaid4, 0n);
   const t = summary.totals;
-  const percentage = value => `${(t.count ? value / t.count * 100 : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
-  const linkedTotal = showRatios ? `${t.linked} (${percentage(t.linked)})` : t.linked;
-  const unlinkedTotal = showRatios ? `${t.unlinked} (${percentage(t.unlinked)})` : t.unlinked;
-  const balanceClass = showRatios ? (t.balance4 >= 0n ? " budget-ok" : " budget-exceeded") : "";
-  return `<thead><tr><th>Cargo</th><th>Qtd. efetivos</th><th>Valor efetivo</th><th>Qtd. sem vínculo</th><th>Valor sem vínculo</th><th>Qtd. Total</th><th>Valor Total</th></tr></thead><tbody>${body}</tbody><tfoot><tr><th scope="row" class="cargo">Total</th><td class="effective">${linkedTotal}</td><td class="effective">${money(fromDecimal4(linkedPaid4), 4)}</td><td class="unlinked">${unlinkedTotal}</td><td class="unlinked">${money(fromDecimal4(unlinkedPaid4), 4)}</td><td class="total">${t.count}</td><td class="total${balanceClass}">${money(fromDecimal4(t.paid4), 4)}</td></tr></tfoot>`;
+  const ratio = value => `${(t.count ? value / t.count * 100 : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
+  const total = `<div class="csjt-row csjt-total"><div class="csjt-cell green cargo">Total</div><div class="csjt-cell blue">${t.linked}</div><div class="csjt-cell blue money">${money(fromDecimal4(linkedPaid4), 2)}</div><div class="csjt-cell yellow">${t.unlinked}</div><div class="csjt-cell yellow money">${money(fromDecimal4(unlinkedPaid4), 2)}</div><div class="csjt-cell green">${t.count}</div><div class="csjt-cell green money">${money(fromDecimal4(t.paid4), 2)}</div></div>`;
+  return `<section class="csjt-section ${current ? "proposed" : ""}"><div class="csjt-big-title">${title}</div><div class="csjt-head"><div>Cargo</div><div>Qtd. efetivos</div><div>Valor efetivos</div><div>Qtd. sem vínculo</div><div>Valor sem Vínculo</div><div>Qtd. Total</div><div>Valor Total</div></div><div class="csjt-lines">${values.map(csjtLine).join("")}${total}</div><div class="csjt-bottom"><div class="csjt-info"><div class="info-title">${current ? "Orçamento paradigma (100%) - Situação Anterior" : "Orçamento paradigma (100%)"}</div><div class="info-note">Todas as CJs são calculadas como 100%</div><div class="info-value">${money(fromDecimal4(t.budget4), 2)}</div></div><div class="csjt-info"><div class="info-title proportion-title">${current ? "Proporção de distribuição entre<br>efetivos X sem vínculo" : "Proporção de distribuição efetivo X sem vínculo"}</div><div class="info-note blank">&nbsp;</div><div class="info-value proportion"><span>${ratio(t.linked)}</span><b>X</b><span>${ratio(t.unlinked)}</span></div></div><div class="csjt-info"><div class="info-title">${current ? "Sobra orçamentária atual" : "Valor Residual Limite"}</div><div class="info-note">${current ? "Diferença entre o orçamento paradigma e o valor total pago" : "Diferença entre o orçamento paradigma e as CJs 65%"}</div><div class="info-value ${t.balance4 < 0n ? "negative" : ""}">${money(fromDecimal4(t.balance4), 2)}</div></div></div></section>`;
+}
+
+function scenarioCompetence() {
+  const value = currentScenario()?.competencia;
+  return value ? String(value).slice(0, 7) : "não informada";
 }
 
 function renderCsjt() {
   const scenario = currentScenario();
   const summaries = summarizeCsjt(state.data.gratificacoesTodas, state.data.tipos, scenario?.orcamento_paradigma ?? 0);
-  $("#csjt-previous-table").innerHTML = csjtTable(summaries.previous);
-  $("#csjt-current-table").innerHTML = csjtTable(summaries.current, true);
+  $("#csjt-competence").textContent = `Competência ${scenarioCompetence()} · valores recalculados a partir dos registros ativos`;
+  $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior", summaries.previous)}${csjtSection("Situação Atual", summaries.current, true)}`;
 }
 
+function saveReportConfig() { try { localStorage.setItem(REPORT_STORAGE, JSON.stringify(reportConfig)); } catch { /* Preferências locais são opcionais. */ } }
+
 function selectedReportFields() {
-  const selected = new Set($$("#report-field-options input:checked").map(input => input.value));
+  const selected = new Set(reportConfig.fields);
   return REPORT_FIELDS.filter(field => selected.has(field.key));
 }
 
+function readReportConfig() {
+  reportConfig = {
+    title: $("#report-title").value.trim() || DEFAULT_REPORT_CONFIG.title,
+    fields: $$("#report-field-options input:checked").map(input => input.value),
+    search: $("#report-search").value,
+    type: $("#report-type").value,
+    link: $("#report-link").value,
+    situation: $("#report-situation").value,
+    unit: $("#report-unit").value,
+    active: $("#report-active").value,
+    group: $("#report-group").value,
+    order: $("#report-order").value,
+    direction: $("#report-direction").value,
+  };
+  saveReportConfig();
+}
+
+function applyReportConfig() {
+  $("#report-title").value = reportConfig.title;
+  $("#report-search").value = reportConfig.search;
+  $("#report-type").value = reportConfig.type;
+  $("#report-link").value = reportConfig.link;
+  $("#report-situation").value = reportConfig.situation;
+  $("#report-unit").value = reportConfig.unit;
+  $("#report-active").value = reportConfig.active;
+  $("#report-group").value = reportConfig.group;
+  $("#report-order").value = reportConfig.order;
+  $("#report-direction").value = reportConfig.direction;
+  $$("#report-field-options input").forEach(input => { input.checked = reportConfig.fields.includes(input.value); });
+}
+
 function reportRows() {
-  const type = $("#report-type").value;
-  const situation = $("#report-situation").value;
-  const link = $("#report-link").value;
-  const active = $("#report-active").value;
-  const unit = $("#report-unit").value;
-  const query = $("#report-search").value.trim().toLocaleLowerCase("pt-BR");
-  return state.data.gratificacoesTodas.filter(row => {
-    const haystack = `${row.servidor_nome ?? ""} ${row.unidade_nome ?? ""} ${row.unidade_sigla ?? ""} ${row.observacoes ?? ""}`.toLocaleLowerCase("pt-BR");
-    return (!type || row.tipo_codigo === type)
-      && (!situation || row.situacao === situation)
-      && (!link || String(row.com_vinculo) === link)
-      && (!active || String(row.ativo) === active)
-      && (!unit || row.unidade_sigla === unit)
+  const query = reportConfig.search.trim().toLocaleLowerCase("pt-BR");
+  const rows = state.data.gratificacoesTodas.filter(row => {
+    const haystack = `${row.id} ${row.servidor_nome ?? ""} ${row.unidade_nome ?? ""} ${row.unidade_sigla ?? ""} ${row.tipo_codigo} ${row.situacao} ${row.observacoes ?? ""}`.toLocaleLowerCase("pt-BR");
+    return (!reportConfig.type || row.tipo_codigo === reportConfig.type)
+      && (!reportConfig.situation || row.situacao === reportConfig.situation)
+      && (!reportConfig.link || String(row.com_vinculo) === reportConfig.link)
+      && (!reportConfig.active || String(row.ativo) === reportConfig.active)
+      && (!reportConfig.unit || row.unidade_sigla === reportConfig.unit)
       && (!query || haystack.includes(query));
   });
+  const direction = reportConfig.direction === "desc" ? -1 : 1;
+  const key = reportConfig.order || DEFAULT_REPORT_CONFIG.order;
+  return rows.sort((a, b) => {
+    const sortValue = row => key === "percentual_aplicado" ? (row.com_vinculo ? Number(row.percentual_com_vinculo) : 1) : (row[key] ?? "");
+    const first = sortValue(a);
+    const second = sortValue(b);
+    if (["valor_integral", "percentual_aplicado", "valor_pago"].includes(key)) return (Number(first) - Number(second)) * direction;
+    return String(first).localeCompare(String(second), "pt-BR", { numeric: true, sensitivity: "base" }) * direction;
+  });
 }
+
+function reportValue(field, row) {
+  return field.format ? field.format(row) : (row[field.key] ?? "—");
+}
+
+function reportTable(rows, fields) {
+  const head = fields.map(field => `<th class="${field.numeric ? "number" : ""}">${field.label}</th>`).join("");
+  const body = rows.length ? rows.map(row => `<tr>${fields.map(field => `<td class="${field.numeric ? "number" : ""}">${escapeHtml(reportValue(field, row))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${fields.length}" class="empty-report">Nenhum registro corresponde aos critérios do relatório.</td></tr>`;
+  return `<div class="table-wrap report-table"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function reportResults(rows, fields) {
+  if (!fields.length) return `<div class="panel empty-report">Selecione ao menos um campo para montar o relatório.</div>`;
+  if (!reportConfig.group) return reportTable(rows, fields);
+  const groupField = REPORT_FIELDS.find(field => field.key === reportConfig.group);
+  const groups = new Map();
+  for (const row of rows) {
+    const key = String(reportValue(groupField, row));
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  return [...groups.entries()].map(([group, records]) => {
+    const paid = records.reduce((sum, row) => sum + Number(row.valor_pago || 0), 0);
+    return `<section class="report-group"><div class="report-group-head"><div><strong>${groupField.label}: ${escapeHtml(group)}</strong><span>${records.length} registro(s)</span></div><b>${money(paid, 4)}</b></div>${reportTable(records, fields)}</section>`;
+  }).join("") || reportTable([], fields);
+}
+
 function renderReport() {
   const fields = selectedReportFields();
   const rows = reportRows();
-  const total = rows.reduce((sum, row) => sum + Number(row.valor_pago || 0), 0);
-  $("#report-status").textContent = `${rows.length} registro${rows.length === 1 ? "" : "s"} · ${money(total, 4)}`;
-  if (!fields.length) {
-    $("#report-table").innerHTML = `<tbody><tr><td>Selecione ao menos um campo para montar o relatório.</td></tr></tbody>`;
-    return;
-  }
-  $("#report-table").innerHTML = `<thead><tr>${fields.map(field => `<th class="${field.numeric ? "number" : ""}">${field.label}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${fields.map(field => {
-    const value = field.format ? field.format(row) : (row[field.key] ?? "-");
-    return `<td class="${field.numeric ? "number" : ""}">${escapeHtml(value)}</td>`;
-  }).join("")}</tr>`).join("")}</tbody>`;
+  const totalPaid = rows.reduce((sum, row) => sum + Number(row.valor_pago || 0), 0);
+  const totalIntegral = rows.reduce((sum, row) => sum + Number(row.valor_integral || 0), 0);
+  const linked = rows.filter(row => row.com_vinculo).length;
+  const unlinked = rows.length - linked;
+  const budget = Number(currentScenario()?.orcamento_paradigma || 0);
+  const balance = budget - totalPaid;
+  $("#report-status").textContent = `${rows.length} registro${rows.length === 1 ? "" : "s"} selecionado${rows.length === 1 ? "" : "s"}`;
+  $("#report-output-title").textContent = reportConfig.title;
+  $("#report-generated").textContent = `Competência ${scenarioCompetence()} · Gerado em ${new Date().toLocaleString("pt-BR")}`;
+  $("#report-metrics").innerHTML = `<article class="card"><small>Registros</small><strong>${rows.length}</strong><span>${linked} com vínculo · ${unlinked} sem vínculo</span></article><article class="card"><small>Valor pago selecionado</small><strong>${money(totalPaid, 4)}</strong></article><article class="card"><small>Valor integral selecionado</small><strong>${money(totalIntegral, 2)}</strong></article><article class="card"><small>Saldo vs. paradigma</small><strong class="${balance >= 0 ? "report-good" : "report-danger"}">${money(balance, 4)}</strong><span>Paradigma menos itens selecionados</span></article>`;
+  $("#report-results").innerHTML = reportResults(rows, fields);
+}
+
+function setReportView(view) {
+  reportView = view === "csjt" ? "csjt" : "custom";
+  $("#custom-report-view").hidden = reportView !== "custom";
+  $("#csjt-report-view").hidden = reportView !== "csjt";
+  $("#show-custom-report").classList.toggle("secondary", reportView !== "custom");
+  $("#show-csjt-report").classList.toggle("secondary", reportView !== "csjt");
+  if (reportView === "csjt") renderCsjt(); else renderReport();
 }
 
 function renderAudit() {
@@ -206,7 +314,10 @@ function populateOptions() {
   $("#report-situation").insertAdjacentHTML("beforeend", situationOptions);
   const unitOptions = [...new Map(state.data.gratificacoesTodas.map(row => [row.unidade_sigla, row.unidade_nome])).entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR")).map(([sigla, nome]) => `<option value="${escapeHtml(sigla)}">${escapeHtml(sigla)} — ${escapeHtml(nome)}</option>`).join("");
   $("#report-unit").insertAdjacentHTML("beforeend", unitOptions);
-  $("#report-field-options").innerHTML = REPORT_FIELDS.map((field, index) => `<label><input type="checkbox" value="${field.key}" ${index < 7 ? "checked" : ""}>${field.label}</label>`).join("");
+  $("#report-field-options").innerHTML = REPORT_FIELDS.map(field => `<label><input type="checkbox" value="${field.key}">${field.label}</label>`).join("");
+  $("#report-group").insertAdjacentHTML("beforeend", REPORT_FIELDS.filter(field => field.groupable).map(field => `<option value="${field.key}">${field.label}</option>`).join(""));
+  $("#report-order").innerHTML = REPORT_FIELDS.map(field => `<option value="${field.key}">${field.label}</option>`).join("");
+  applyReportConfig();
   $("#grant-form [name=tipo_id]").innerHTML = state.data.tipos.map(item => `<option value="${item.id}">${item.codigo}</option>`).join("");
 }
 
@@ -260,13 +371,15 @@ function bindEvents() {
     } catch (error) { toast(error.message, true); }
   });
   $("#logout").addEventListener("click", async () => { await signOut(); location.reload(); });
-  $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; updateNewGrantVisibility(button.dataset.view); }));
+  $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; if (button.dataset.view === "relatorios") setReportView(button.dataset.reportView || "custom"); updateNewGrantVisibility(button.dataset.view); }));
   $("#new-grant").addEventListener("click", () => openGrant());
   ["#search","#filter-type","#filter-link"].forEach(selector => $(selector).addEventListener("input", renderGrants));
-  ["#report-type","#report-situation","#report-link","#report-active","#report-unit"].forEach(selector => $(selector).addEventListener("change", renderReport));
-  $("#report-search").addEventListener("input", renderReport);
-  $("#report-field-options").addEventListener("change", renderReport);
-  $("#select-all-fields").addEventListener("click", () => { const inputs = $$("#report-field-options input"); const select = inputs.some(input => !input.checked); inputs.forEach(input => { input.checked = select; }); renderReport(); });
+  ["#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));
+  ["#report-search","#report-title"].forEach(selector => $(selector).addEventListener("input", () => { readReportConfig(); renderReport(); }));
+  $("#report-field-options").addEventListener("change", () => { readReportConfig(); renderReport(); });
+  $("#reset-report").addEventListener("click", () => { reportConfig = { ...DEFAULT_REPORT_CONFIG, fields: [...DEFAULT_REPORT_CONFIG.fields] }; saveReportConfig(); applyReportConfig(); renderReport(); toast("Configuração do relatório restaurada."); });
+  $("#show-custom-report").addEventListener("click", () => { $("#page-title").textContent = "Relatórios"; setReportView("custom"); });
+  $("#show-csjt-report").addEventListener("click", () => { $("#page-title").textContent = "Relatórios"; setReportView("csjt"); });
   $("#grants-table").addEventListener("click", async event => { const edit = event.target.dataset.edit; const remove = event.target.dataset.delete; if (edit) openGrant(edit); if (remove && confirm("Inativar esta gratificação?")) { try { await inactivateGrant(remove); await reload(); toast("Gratificação inativada."); } catch (error) { toast(error.message, true); } } });
   $("#grant-form").addEventListener("submit", async event => { event.preventDefault(); const form = new FormData(event.target); const record = Object.fromEntries(form); record.com_vinculo = record.com_vinculo === "true"; record.cenario_id = event.target.dataset.scenarioId; try { await saveGrant(record); $("#grant-dialog").close(); await reload(); toast("Gratificação salva."); } catch (error) { toast(error.message, true); } });
   $("#profiles-table").addEventListener("click", async event => { const id = event.target.dataset.saveProfile; if (!id) return; const row = event.target.closest("tr"); try { await updateProfile(id, row.querySelector('[data-field=role]').value, row.querySelector('[data-field=ativo]').checked); await reload(); toast("Perfil atualizado."); } catch (error) { toast(error.message, true); } });
@@ -283,8 +396,9 @@ function bindEvents() {
     } catch (error) { toast(error.message, true); }
     finally { button.disabled = false; }
   });
-  $("#export-csv").addEventListener("click", () => { const fields = selectedReportFields(); if (!fields.length) return toast("Selecione ao menos um campo.", true); const csv = [fields.map(field => field.label).join(";"), ...reportRows().map(row => fields.map(field => { const value = field.format ? field.format(row) : row[field.key]; return `"${String(value ?? "").replaceAll('"','""')}"`; }).join(";"))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); link.download = "gratificacoes-customizado.csv"; link.click(); URL.revokeObjectURL(link.href); });
-  $("#print-report").addEventListener("click", () => window.print());
+  $("#export-csv").addEventListener("click", () => { readReportConfig(); const fields = selectedReportFields(); if (!fields.length) return toast("Selecione ao menos um campo.", true); const csv = [fields.map(field => field.label).join(";"), ...reportRows().map(row => fields.map(field => `"${String(reportValue(field, row) ?? "").replaceAll('"','""')}"`).join(";"))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); link.download = `relatorio-gratificacoes-${scenarioCompetence()}.csv`; link.click(); URL.revokeObjectURL(link.href); });
+  $("#print-report").addEventListener("click", () => { document.body.classList.add("printing-report"); window.print(); setTimeout(() => document.body.classList.remove("printing-report"), 300); });
+  $("#print-csjt").addEventListener("click", () => { document.body.classList.add("printing-csjt"); window.print(); setTimeout(() => document.body.classList.remove("printing-csjt"), 300); });
 }
 
 async function start() {
