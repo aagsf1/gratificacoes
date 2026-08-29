@@ -1,6 +1,6 @@
 export const APP_CONFIG = Object.freeze({
-  supabaseUrl: "https://SEU-PROJETO.supabase.co",
-  supabasePublishableKey: "SUA_CHAVE_PUBLICAVEL",
+  supabaseUrl: "https://wiollbxstffanegwdiod.supabase.co",
+  supabasePublishableKey: "sb_publishable_SjOu7y0JKQMz0NwmIUnCoA_cDFIcYcx",
 });
 
 export function isConfigured() {
