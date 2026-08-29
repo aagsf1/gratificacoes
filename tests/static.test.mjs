@@ -16,5 +16,6 @@ const auth = await readFile(resolve(root, "auth.js"), "utf8");
 assert.match(auth, /\.eq\("id",\s*session\.user\.id\)\s*\.single\(\)/s, "A consulta do perfil deve ficar restrita ao usuário autenticado");
 assert.match(auth, /updateUser\(\{ password \}\)/, "A recuperação deve permitir cadastrar a nova senha");
 assert.match(html, /id="password-recovery-form"/, "A página deve conter o formulário de nova senha");
+assert.match(html, /\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/, "Telas ocultas não podem ser reexibidas pelo CSS de layout");
 assert.match(await readFile(resolve(root, "app.js"), "utf8"), /PASSWORD_RECOVERY[\s\S]*otp_expired|otp_expired[\s\S]*PASSWORD_RECOVERY/, "A aplicação deve tratar recuperação e links expirados");
 console.log(`Referências estáticas validadas: ${refs.join(", ")}.`);
