@@ -9,7 +9,9 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 - perfis `admin`, `gestor`, `consulta` e `auditor`;
 - RLS no PostgreSQL e trilha de auditoria imutável para usuários do app;
 - cadastro e inativação de gratificações por `admin` e `gestor`;
-- dashboard, filtros, relatórios CSV/impressão e Quadro CSJT;
+- dashboard e filtros operacionais;
+- relatório customizável com seleção de campos, busca, filtros por CJ, situação, vínculo, status e unidade, além de CSV/impressão;
+- Quadro CSJT fiel ao bloco “Situação Proposta” da planilha de referência, inclusive na impressão;
 - cálculos financeiros com quatro casas decimais;
 - somente CJ-01, CJ-02, CJ-03 e CJ-04.
 

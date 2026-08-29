@@ -8,7 +8,7 @@ function db() {
 
 export async function loadApplicationData() {
   const [gratificacoes, tipos, cenarios, auditoria, perfis] = await Promise.all([
-    db().from("gratificacoes_detalhadas").select("*").eq("ativo", true).order("legacy_order", { ascending: true }),
+    db().from("gratificacoes_detalhadas").select("*").order("legacy_order", { ascending: true }),
     db().from("tipos_gratificacao").select("*").eq("ativo", true).order("codigo"),
     db().from("cenarios").select("*").order("competencia", { ascending: false }),
     db().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
@@ -16,7 +16,8 @@ export async function loadApplicationData() {
   ]);
   for (const result of [gratificacoes, tipos, cenarios]) if (result.error) throw result.error;
   return {
-    gratificacoes: gratificacoes.data,
+    gratificacoes: gratificacoes.data.filter(item => item.ativo),
+    gratificacoesTodas: gratificacoes.data,
     tipos: tipos.data,
     cenarios: cenarios.data,
     auditoria: auditoria.error ? [] : auditoria.data,

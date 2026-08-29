@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>Gestão de Gratificações</title>
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./reports.css">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="./app.js"></script>
@@ -51,7 +52,7 @@
       <div class="identity"><strong id="profile-name"></strong><small id="profile-role"></small><button id="logout" class="link-button">Sair</button></div>
     </aside>
     <main class="content">
-      <header><div><p class="eyebrow">Cenário vigente</p><h1 id="page-title">Dashboard</h1></div><button id="new-grant" data-write>Nova gratificação</button></header>
+      <header><div><p class="eyebrow">Cenário vigente</p><h1 id="page-title">Dashboard</h1></div><button id="new-grant" data-write hidden>Nova gratificação</button></header>
       <section id="dashboard" class="view active-view">
         <div id="cards" class="cards"></div>
         <div class="panel"><h2>Distribuição por CJ</h2><div id="type-bars" class="bars"></div></div>
@@ -61,8 +62,30 @@
         <div class="toolbar"><input id="search" type="search" placeholder="Pesquisar servidor, unidade ou sigla"><select id="filter-type"><option value="">Todas as CJs</option></select><select id="filter-link"><option value="">Todos os vínculos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></div>
         <div class="panel table-wrap"><table id="grants-table"></table></div>
       </section>
-      <section id="csjt" class="view"><div class="panel"><h2>Quadro CSJT — situação proposta</h2><p class="muted">Valores preservam quatro casas decimais.</p><div class="table-wrap"><table id="csjt-table"></table></div><div id="csjt-totals" class="cards compact"></div></div></section>
-      <section id="relatorios" class="view"><div class="panel"><h2>Relatório customizável</h2><div class="toolbar"><select id="report-type"><option value="">Todas as CJs</option></select><select id="report-situation"><option value="">Todas as situações</option></select><button id="export-csv">Exportar CSV</button><button id="print-report" class="secondary">Imprimir / PDF</button></div><div class="table-wrap"><table id="report-table"></table></div></div></section>
+      <section id="csjt" class="view">
+        <div id="csjt-sheet" class="panel csjt-sheet">
+          <div class="csjt-title-row"><h2>Quadro CSJT</h2><strong>Situação Proposta</strong></div>
+          <p class="csjt-reference">Estrutura da aba “Quadro CSJT” — valores calculados com precisão de quatro casas decimais.</p>
+          <div class="table-wrap"><table id="csjt-table" aria-label="Quadro CSJT - Situação Proposta"></table></div>
+          <div id="csjt-summary" class="csjt-summary"></div>
+        </div>
+      </section>
+      <section id="relatorios" class="view">
+        <div class="panel report-panel">
+          <div class="report-heading"><div><h2>Relatório customizável</h2><p class="muted">Inclui gratificações ativas e inativas. Selecione campos e combine filtros.</p></div><div id="report-status" class="report-status" aria-live="polite"></div></div>
+          <div class="report-filters">
+            <label>Pesquisar<input id="report-search" type="search" placeholder="Servidor, unidade, sigla ou observação"></label>
+            <label>Tipo<select id="report-type"><option value="">Todas as CJs</option></select></label>
+            <label>Situação<select id="report-situation"><option value="">Todas as situações</option></select></label>
+            <label>Vínculo<select id="report-link"><option value="">Todos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></label>
+            <label>Status<select id="report-active"><option value="">Ativas e inativas</option><option value="true">Ativas</option><option value="false">Inativas</option></select></label>
+            <label>Unidade<select id="report-unit"><option value="">Todas as unidades</option></select></label>
+          </div>
+          <fieldset class="report-fields"><legend>Campos do relatório</legend><div id="report-field-options"></div></fieldset>
+          <div class="report-actions"><button id="select-all-fields" class="secondary" type="button">Selecionar todos</button><button id="export-csv" type="button">Exportar CSV</button><button id="print-report" class="secondary" type="button">Imprimir / PDF</button></div>
+          <div class="table-wrap"><table id="report-table"></table></div>
+        </div>
+      </section>
       <section id="auditoria" class="view"><div class="panel"><h2>Trilha de auditoria</h2><div class="table-wrap"><table id="audit-table"></table></div></div></section>
       <section id="administracao" class="view">
         <div class="panel">
