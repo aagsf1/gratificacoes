@@ -26,7 +26,11 @@ export async function currentIdentity() {
   if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
-  const { data: profile, error } = await supabase.from("profiles").select("id,email,nome,role,ativo").single();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id,email,nome,role,ativo")
+    .eq("id", session.user.id)
+    .single();
   if (error) throw error;
   if (!profile.ativo) throw new Error("Usuário inativo.");
   return { session, profile };

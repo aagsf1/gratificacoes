@@ -12,4 +12,6 @@ const combined = all.join("\n");
 assert.doesNotMatch(combined, /service_role/i);
 assert.doesNotMatch(combined, /eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}/);
 assert.match(await readFile(resolve(root,".github/workflows/pages.yml"),"utf8"), /actions\/deploy-pages@v4/);
+const auth = await readFile(resolve(root, "auth.js"), "utf8");
+assert.match(auth, /\.eq\("id",\s*session\.user\.id\)\s*\.single\(\)/s, "A consulta do perfil deve ficar restrita ao usuário autenticado");
 console.log(`Referências estáticas validadas: ${refs.join(", ")}.`);
