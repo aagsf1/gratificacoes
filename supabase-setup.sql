@@ -49,8 +49,8 @@ create table public.gratificacoes (
   ativo boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  created_by uuid references auth.users(id),
-  updated_by uuid references auth.users(id)
+  created_by uuid references auth.users(id) on delete set null,
+  updated_by uuid references auth.users(id) on delete set null
 );
 create table public.audit_logs (
   id bigint generated always as identity primary key,
@@ -128,6 +128,20 @@ create policy gratificacoes_read on public.gratificacoes for select using (publi
 create policy gratificacoes_insert on public.gratificacoes for insert with check (public.is_writer());
 create policy gratificacoes_update on public.gratificacoes for update using (public.is_writer()) with check (public.is_writer());
 create policy audit_read on public.audit_logs for select using (public.current_role() in ('admin','auditor'));
+
+-- Canal privado usado para exibir, somente aos administradores, quem está com o aplicativo aberto.
+create policy presence_active_user_track on realtime.messages for insert to authenticated
+with check (
+  realtime.messages.extension = 'presence'
+  and realtime.topic() = 'online-users'
+  and public.is_reader()
+);
+create policy presence_admin_read on realtime.messages for select to authenticated
+using (
+  realtime.messages.extension = 'presence'
+  and realtime.topic() = 'online-users'
+  and public.is_admin()
+);
 
 revoke all on public.audit_logs from anon,authenticated;
 grant select on public.profiles,public.tipos_gratificacao,public.cenarios,public.gratificacoes to authenticated;

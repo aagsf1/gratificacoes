@@ -1,9 +1,10 @@
-import { isConfigured } from "./app-config.js";
-import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js";
-import { inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js";
-import { decimal4, fromDecimal4, summarize, summarizeCsjt } from "./calc.js";
+import { isConfigured } from "./app-config.js?v=20260829-admin";
+import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
+import { deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js?v=20260829-admin";
+import { decimal4, fromDecimal4, summarize, summarizeCsjt } from "./calc.js?v=20260829-admin";
+import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-admin";
 
-const state = { identity: null, data: null, summary: null };
+const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting" };
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const money = (value, digits = 2) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
@@ -311,7 +312,26 @@ function renderAudit() {
 }
 
 function renderProfiles() {
-  $("#profiles-table").innerHTML = `<thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ativo</th><th>Ação</th></tr></thead><tbody>${state.data.perfis.map(row => `<tr data-profile="${row.id}"><td>${escapeHtml(row.nome || "—")}</td><td>${escapeHtml(row.email)}</td><td><select data-field="role">${["admin","gestor","consulta","auditor"].map(role => `<option ${row.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></td><td><input data-field="ativo" type="checkbox" ${row.ativo ? "checked" : ""}></td><td><button data-save-profile="${row.id}">Salvar</button></td></tr>`).join("")}</tbody>`;
+  $("#profiles-table").innerHTML = `<thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ativo</th><th>Ações</th></tr></thead><tbody>${state.data.perfis.map(row => {
+    const ownAccount = row.id === state.identity.profile.id;
+    return `<tr data-profile="${row.id}"><td>${escapeHtml(row.nome || "—")}</td><td>${escapeHtml(row.email)}</td><td><select data-field="role">${["admin","gestor","consulta","auditor"].map(role => `<option ${row.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></td><td><input data-field="ativo" type="checkbox" ${row.ativo ? "checked" : ""}></td><td><div class="row-actions"><button data-save-profile="${row.id}">Salvar</button><button class="danger" data-delete-profile="${row.id}" ${ownAccount ? 'disabled title="Sua própria conta não pode ser excluída"' : ""}>Excluir</button></div></td></tr>`;
+  }).join("")}</tbody>`;
+}
+
+function renderOnlineUsers() {
+  const profiles = new Map(state.data.perfis.map(profile => [profile.id, profile]));
+  const online = state.onlineUsers.filter(entry => profiles.has(entry.userId));
+  const status = $("#presence-status");
+  status.classList.toggle("error", state.presenceStatus === "error");
+  status.textContent = state.presenceStatus === "error"
+    ? "Presença indisponível"
+    : state.presenceStatus === "connecting" ? "Conectando…" : `${online.length} online`;
+  const viewNames = { dashboard: "Dashboard", gratificacoes: "Gratificações", relatorios: "Relatórios", auditoria: "Auditoria", administracao: "Administração" };
+  const rows = online.map(entry => {
+    const profile = profiles.get(entry.userId);
+    return `<tr><td><span class="online-dot" aria-label="Online"></span>${escapeHtml(profile.nome || "—")}</td><td>${escapeHtml(profile.email)}</td><td>${escapeHtml(profile.role)}</td><td>${escapeHtml(viewNames[entry.currentView] || entry.currentView)}</td><td>${dateTime(entry.onlineAt)}</td><td class="number">${entry.connections}</td></tr>`;
+  }).join("");
+  $("#online-users-table").innerHTML = `<thead><tr><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Seção atual</th><th>Desde</th><th class="number">Conexões</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty-state">Nenhum usuário online detectado.</td></tr>'}</tbody>`;
 }
 
 function populateOptions() {
@@ -329,7 +349,7 @@ function populateOptions() {
   $("#grant-form [name=tipo_id]").innerHTML = state.data.tipos.map(item => `<option value="${item.id}">${item.codigo}</option>`).join("");
 }
 
-function renderAll() { refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderAudit(); renderProfiles(); }
+function renderAll() { refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderAudit(); renderProfiles(); renderOnlineUsers(); }
 
 function updateNewGrantVisibility(activeView) {
   $("#new-grant").hidden = !(canWrite() && activeView === "gratificacoes");
@@ -382,8 +402,8 @@ function bindEvents() {
       await start();
     } catch (error) { toast(error.message, true); }
   });
-  $("#logout").addEventListener("click", async () => { await signOut(); location.reload(); });
-  $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; if (button.dataset.view === "relatorios") setReportView(button.dataset.reportView || "custom"); updateNewGrantVisibility(button.dataset.view); }));
+  $("#logout").addEventListener("click", async () => { await stopPresence(); await signOut(); location.reload(); });
+  $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; if (button.dataset.view === "relatorios") setReportView(button.dataset.reportView || "custom"); updateNewGrantVisibility(button.dataset.view); void updatePresence(button.dataset.view); }));
   $("#new-grant").addEventListener("click", () => openGrant());
   ["#search","#filter-type","#filter-link"].forEach(selector => $(selector).addEventListener("input", renderGrants));
   ["#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));
@@ -394,7 +414,29 @@ function bindEvents() {
   $("#show-csjt-report").addEventListener("click", () => { $("#page-title").textContent = "Relatórios"; setReportView("csjt"); });
   $("#grants-table").addEventListener("click", async event => { const edit = event.target.dataset.edit; const remove = event.target.dataset.delete; if (edit) openGrant(edit); if (remove && confirm("Inativar esta gratificação?")) { try { await inactivateGrant(remove); await reload(); toast("Gratificação inativada."); } catch (error) { toast(error.message, true); } } });
   $("#grant-form").addEventListener("submit", async event => { event.preventDefault(); const form = new FormData(event.target); const record = Object.fromEntries(form); record.com_vinculo = record.com_vinculo === "true"; record.cenario_id = event.target.dataset.scenarioId; try { await saveGrant(record); $("#grant-dialog").close(); await reload(); toast("Gratificação salva."); } catch (error) { toast(error.message, true); } });
-  $("#profiles-table").addEventListener("click", async event => { const id = event.target.dataset.saveProfile; if (!id) return; const row = event.target.closest("tr"); try { await updateProfile(id, row.querySelector('[data-field=role]').value, row.querySelector('[data-field=ativo]').checked); await reload(); toast("Perfil atualizado."); } catch (error) { toast(error.message, true); } });
+  $("#profiles-table").addEventListener("click", async event => {
+    const saveId = event.target.dataset.saveProfile;
+    const deleteId = event.target.dataset.deleteProfile;
+    if (saveId) {
+      const row = event.target.closest("tr");
+      try { await updateProfile(saveId, row.querySelector('[data-field=role]').value, row.querySelector('[data-field=ativo]').checked); await reload(); toast("Perfil atualizado."); }
+      catch (error) { toast(error.message, true); }
+      return;
+    }
+    if (!deleteId) return;
+    const profile = state.data.perfis.find(item => item.id === deleteId);
+    if (!profile) return toast("Usuário não encontrado.", true);
+    const confirmation = prompt(`Esta exclusão é permanente. Para confirmar, digite o e-mail ${profile.email}`);
+    if (confirmation === null) return;
+    if (confirmation.trim().toLowerCase() !== profile.email.toLowerCase()) return toast("O e-mail de confirmação não confere.", true);
+    event.target.disabled = true;
+    try {
+      const result = await deleteUser(deleteId);
+      await reload();
+      toast(result.warning || "Usuário excluído permanentemente.", Boolean(result.warning));
+    } catch (error) { toast(error.message, true); }
+    finally { event.target.disabled = false; }
+  });
   $("#user-form").addEventListener("submit", async event => {
     event.preventDefault();
     const form = new FormData(event.target);
@@ -424,6 +466,14 @@ async function start() {
   $$('[data-role]').forEach(element => element.hidden = !element.dataset.role.split(",").includes(state.identity.profile.role));
   updateNewGrantVisibility("dashboard");
   populateOptions(); renderAll();
+  startPresence(state.identity, onlineUsers => {
+    state.onlineUsers = onlineUsers;
+    state.presenceStatus = "connected";
+    renderOnlineUsers();
+  }, status => {
+    state.presenceStatus = status;
+    renderOnlineUsers();
+  });
 }
 
 bindEvents();

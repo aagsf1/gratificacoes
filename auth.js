@@ -1,4 +1,4 @@
-import { getSupabase } from "./supabase-client.js";
+import { getSupabase } from "./supabase-client.js?v=20260829-admin";
 
 export async function signIn(email, password) {
   const supabase = getSupabase();

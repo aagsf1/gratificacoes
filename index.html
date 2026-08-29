@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>Gestão de Gratificações</title>
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./reports.css">
+  <link rel="stylesheet" href="./styles.css?v=20260829-admin">
+  <link rel="stylesheet" href="./reports.css?v=20260829-admin">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=20260829-admin"></script>
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -121,7 +121,12 @@
             <button type="submit">Cadastrar e enviar convite</button>
           </form>
         </div>
-        <div class="panel"><h2>Perfis de acesso</h2><p class="muted">Altere o perfil ou inative o acesso de um usuário cadastrado.</p><div class="table-wrap"><table id="profiles-table"></table></div></div>
+        <div class="panel">
+          <div class="section-title"><h2>Usuários online agora</h2><span id="presence-status" class="presence-status" aria-live="polite">Conectando…</span></div>
+          <p class="muted">Mostra os usuários que estão com a aplicação aberta neste momento. Várias abas do mesmo usuário são consolidadas.</p>
+          <div class="table-wrap"><table id="online-users-table"></table></div>
+        </div>
+        <div class="panel"><h2>Perfis de acesso</h2><p class="muted">Altere o perfil, inative o acesso ou exclua permanentemente um usuário cadastrado.</p><div class="table-wrap"><table id="profiles-table"></table></div></div>
       </section>
     </main>
   </div>

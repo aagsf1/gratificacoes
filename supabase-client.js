@@ -1,4 +1,4 @@
-import { APP_CONFIG, isConfigured } from "./app-config.js";
+import { APP_CONFIG, isConfigured } from "./app-config.js?v=20260829-admin";
 
 let client;
 

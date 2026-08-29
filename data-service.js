@@ -1,9 +1,22 @@
-import { getSupabase } from "./supabase-client.js";
+import { getSupabase } from "./supabase-client.js?v=20260829-admin";
 
 function db() {
   const client = getSupabase();
   if (!client) throw new Error("Supabase não configurado.");
   return client;
+}
+
+async function functionResponse(data, error) {
+  if (error) {
+    let message = error.message;
+    try {
+      const body = await error.context?.json();
+      if (body?.error) message = body.error;
+    } catch { /* A resposta já foi consumida ou não contém JSON. */ }
+    throw new Error(message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
 }
 
 export async function loadApplicationData() {
@@ -59,7 +72,12 @@ export async function inviteUser(nome, email, role) {
   const { data, error } = await db().functions.invoke("invite-user", {
     body: { nome: nome.trim(), email: email.trim().toLowerCase(), role },
   });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return data;
+  return functionResponse(data, error);
+}
+
+export async function deleteUser(userId) {
+  const { data, error } = await db().functions.invoke("delete-user", {
+    body: { userId },
+  });
+  return functionResponse(data, error);
 }
