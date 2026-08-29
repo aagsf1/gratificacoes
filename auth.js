@@ -21,6 +21,18 @@ export async function requestPasswordReset(email) {
   if (error) throw error;
 }
 
+export async function verifyRecoveryCode(email, token) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("Configure o Supabase em app-config.js.");
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: token.trim(),
+    type: "recovery",
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function updatePassword(password) {
   const supabase = getSupabase();
   if (!supabase) throw new Error("Configure o Supabase em app-config.js.");

@@ -1,5 +1,5 @@
 import { isConfigured } from "./app-config.js";
-import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword } from "./auth.js";
+import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyRecoveryCode } from "./auth.js";
 import { inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js";
 import { decimal4, fromDecimal4, summarize } from "./calc.js";
 
@@ -22,7 +22,9 @@ const REPORT_FIELDS = [
   { key: "ativo", label: "Status", format: row => row.ativo ? "Ativa" : "Inativa" },
 ];
 const authRedirect = new URLSearchParams(window.location.hash.slice(1));
+const authQuery = new URLSearchParams(window.location.search);
 let passwordRecoveryPending = ["recovery", "invite"].includes(authRedirect.get("type"));
+let recoveryCodePending = authQuery.get("recovery") === "1";
 
 function toast(message, error = false) {
   const element = $("#toast");
@@ -38,8 +40,8 @@ function showAuthMessage(message) {
   element.hidden = false;
 }
 
-function clearAuthRedirect() {
-  history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+function clearAuthRedirect(clearQuery = false) {
+  history.replaceState(null, "", clearQuery ? window.location.pathname : `${window.location.pathname}${window.location.search}`);
 }
 
 function handleAuthRedirectError() {
@@ -55,10 +57,33 @@ function handleAuthRedirectError() {
 
 function showPasswordRecovery() {
   passwordRecoveryPending = true;
+  recoveryCodePending = false;
   $("#login-view").hidden = true;
+  $("#recovery-code-view").hidden = true;
   $("#app-view").hidden = true;
   $("#password-recovery-view").hidden = false;
   $("#new-password").focus();
+}
+
+function showRecoveryCode(email = "") {
+  recoveryCodePending = true;
+  $("#login-view").hidden = true;
+  $("#password-recovery-view").hidden = true;
+  $("#app-view").hidden = true;
+  $("#recovery-code-view").hidden = false;
+  $("#recovery-email").value = email;
+  (email ? $("#recovery-code") : $("#recovery-email")).focus();
+}
+
+function showLogin() {
+  passwordRecoveryPending = false;
+  recoveryCodePending = false;
+  clearAuthRedirect(true);
+  $("#recovery-code-view").hidden = true;
+  $("#password-recovery-view").hidden = true;
+  $("#app-view").hidden = true;
+  $("#login-view").hidden = false;
+  $("#email").focus();
 }
 
 function currentScenario() {
@@ -202,7 +227,21 @@ async function reload() { state.data = await loadApplicationData(); renderAll();
 
 function bindEvents() {
   $("#login-form").addEventListener("submit", async event => { event.preventDefault(); try { await signIn(event.target.email.value, event.target.password.value); await start(); } catch (error) { toast(error.message, true); } });
-  $("#reset-password").addEventListener("click", async () => { const email = $("#email").value; if (!email) return toast("Informe seu e-mail.", true); try { await requestPasswordReset(email); toast("Mensagem enviada. Abra somente o link do e-mail mais recente."); } catch (error) { toast(error.message, true); } });
+  $("#reset-password").addEventListener("click", async () => { const email = $("#email").value; if (!email) return toast("Informe seu e-mail.", true); try { await requestPasswordReset(email); showRecoveryCode(email); toast("Código enviado. Consulte o e-mail mais recente."); } catch (error) { toast(error.message, true); } });
+  $("#recovery-code-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = event.submitter;
+    button.disabled = true;
+    try {
+      await verifyRecoveryCode(event.target.email.value, event.target.code.value);
+      clearAuthRedirect(true);
+      showPasswordRecovery();
+      toast("Código confirmado. Defina sua nova senha.");
+    } catch (error) {
+      toast(error.code === "otp_expired" ? "Código inválido ou expirado. Solicite um novo código." : error.message, true);
+    } finally { button.disabled = false; }
+  });
+  $("#cancel-recovery").addEventListener("click", showLogin);
   $("#password-recovery-form").addEventListener("submit", async event => {
     event.preventDefault();
     const { password, confirmation } = event.target.elements;
@@ -210,7 +249,7 @@ function bindEvents() {
     try {
       await updatePassword(password.value);
       passwordRecoveryPending = false;
-      clearAuthRedirect();
+      clearAuthRedirect(true);
       $("#password-recovery-view").hidden = true;
       toast("Senha atualizada com sucesso.");
       await start();
@@ -264,5 +303,6 @@ else {
   onAuthStateChange((event, session) => {
     if (event === "PASSWORD_RECOVERY" || (passwordRecoveryPending && session)) showPasswordRecovery();
   });
-  if (!passwordRecoveryPending) start().catch(error => toast(error.message, true));
+  if (recoveryCodePending) showRecoveryCode();
+  if (!passwordRecoveryPending && !recoveryCodePending) start().catch(error => toast(error.message, true));
 }

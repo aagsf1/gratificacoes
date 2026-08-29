@@ -4,7 +4,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 
 ## Funcionalidades
 
-- Supabase Auth com recuperação de senha;
+- Supabase Auth com recuperação de senha por código digitado manualmente, resistente ao consumo antecipado por scanners de e-mail;
 - cadastro de usuários por convite, disponível somente para administradores;
 - perfis `admin`, `gestor`, `consulta` e `auditor`;
 - RLS no PostgreSQL e trilha de auditoria imutável para usuários do app;
@@ -24,6 +24,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 5. Promova-o com o comando comentado ao final de `supabase-setup.sql`.
 6. Copie a URL do projeto e a chave **publishable/anon** para `app-config.js`.
 7. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
+8. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
 
 ## Cadastro de usuários pela aplicação
 

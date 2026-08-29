@@ -27,6 +27,18 @@
     </form>
   </main>
 
+  <main id="recovery-code-view" class="login-shell" hidden>
+    <form id="recovery-code-form" class="login-card">
+      <p class="eyebrow">Recuperação de acesso</p>
+      <h1>Confirme o código</h1>
+      <p class="muted">Digite o código recebido por e-mail. Ele só será utilizado quando você confirmar este formulário.</p>
+      <label>E-mail<input id="recovery-email" name="email" type="email" autocomplete="email" required></label>
+      <label>Código de recuperação<input id="recovery-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" minlength="6" maxlength="10" required></label>
+      <button type="submit">Validar código</button>
+      <button id="cancel-recovery" class="link-button" type="button">Voltar ao login</button>
+    </form>
+  </main>
+
   <main id="password-recovery-view" class="login-shell" hidden>
     <form id="password-recovery-form" class="login-card">
       <p class="eyebrow">Recuperação de acesso</p>
