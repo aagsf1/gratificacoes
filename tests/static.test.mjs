@@ -30,6 +30,9 @@ assert.doesNotMatch(html, /value="auditor"|data-role="[^"]*auditor/, "Auditor n�
 assert.match(html, /data-view="auditoria" data-role="admin"/, "A Auditoria deve aparecer somente para Admin");
 assert.match(html, /data-view="gratificacoes">Quadro de Gratificações</, "O menu deve usar o novo nome do quadro");
 assert.doesNotMatch(html, /Cenário vigente/i, "A frase Cenário vigente deve ser removida");
+assert.match(html, /src="\.\/assets\/trt16-logo\.png"[^>]+alt="Justiça do Trabalho — TRT da 16ª Região \(MA\)"/, "O menu deve exibir a logo oficial do TRT da 16ª Região com texto alternativo");
+assert.match(html, /class="brand"[\s\S]*Gestão de Gratificações[\s\S]*<\/div>\s*<nav/, "O topo do menu deve manter o nome Gestão de Gratificações");
+assert.doesNotMatch(html, /Gestão institucional/i, "O topo do menu não deve exibir Gestão institucional");
 assert.match(html, /\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/, "Telas ocultas não podem ser reexibidas pelo CSS de layout");
 assert.match(await readFile(resolve(root, "app.js"), "utf8"), /PASSWORD_RECOVERY[\s\S]*otp_expired|otp_expired[\s\S]*PASSWORD_RECOVERY/, "A aplicação deve tratar recuperação e links expirados");
 assert.match(await readFile(resolve(root, "data-service.js"), "utf8"), /functions\.invoke\("invite-user"/, "O cadastro deve usar a função protegida de convite");

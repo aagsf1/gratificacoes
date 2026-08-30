@@ -37,10 +37,12 @@ textarea{min-height:80px}
 .warning{padding:.8rem;border-radius:8px;background:#FBDB65;color:#01426A;border-left:4px solid #FFCD00}
 .app-shell{display:grid;grid-template-columns:245px 1fr;min-height:100vh}
 aside{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:1.2rem;background:#01426A;color:white}
-.brand{display:flex;align-items:center;gap:.8rem;padding:.4rem}
-.brand>span{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#FFCD00;color:#01426A;font-weight:900}
-.brand div,.identity{display:grid}
-.brand small,.identity small{color:color-mix(in srgb,#FBDB65 62%,white)}
+.brand{display:grid;gap:1rem;padding:.25rem .25rem 1.2rem;border-bottom:1px solid color-mix(in srgb,#FBDB65 35%,transparent)}
+.brand-logo{display:grid;place-items:center;padding:.8rem;border-radius:12px;background:white;box-shadow:0 8px 22px color-mix(in srgb,#01426A 35%,transparent)}
+.brand-logo img{display:block;width:100%;height:auto}
+.brand>strong{padding-inline:.25rem;font-size:1.05rem;line-height:1.25}
+.identity{display:grid}
+.identity small{color:color-mix(in srgb,#FBDB65 62%,white)}
 nav{display:grid;gap:.35rem;margin-top:2rem}
 nav button{text-align:left;background:transparent;color:white}
 nav button.active,nav button:hover{background:#0067A0;color:white}
@@ -84,5 +86,5 @@ dialog form{display:grid;gap:1rem}
 .presence-status.error{background:#FBDB65;color:#01426A}
 .online-dot{display:inline-block;width:.55rem;height:.55rem;margin-right:.5rem;border-radius:50%;background:#00B388;box-shadow:0 0 0 3px color-mix(in srgb,#00B388 22%,white);vertical-align:middle}
 .empty-state{text-align:center;color:var(--muted);padding:1.25rem}
-@media(max-width:900px){.app-shell{grid-template-columns:1fr}aside{position:static;height:auto}nav{grid-template-columns:repeat(3,1fr);margin-top:1rem}.identity{margin-top:1rem}.cards{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.content{padding:1rem}.cards{grid-template-columns:1fr}.content>header{align-items:flex-start}.content>header button{font-size:.8rem}nav{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.app-shell{grid-template-columns:1fr}aside{position:static;height:auto}.brand{grid-template-columns:minmax(190px,250px) 1fr;align-items:center}.brand>strong{font-size:1.2rem}nav{grid-template-columns:repeat(3,1fr);margin-top:1rem}.identity{margin-top:1rem}.cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.content{padding:1rem}.brand{grid-template-columns:1fr}.brand-logo{width:min(100%,250px)}.cards{grid-template-columns:1fr}.content>header{align-items:flex-start}.content>header button{font-size:.8rem}nav{grid-template-columns:1fr 1fr}}
