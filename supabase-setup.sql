@@ -120,7 +120,9 @@ create function public.clear_audit_logs() returns integer language plpgsql secur
 declare removed integer;
 begin
   if not public.is_admin() then raise exception 'Somente administradores podem limpar a auditoria' using errcode='42501'; end if;
-  delete from public.audit_logs;
+  -- O filtro explicito preserva a intencao de apagar todos os registros e
+  -- atende a protecao contra DELETE sem WHERE habilitada no projeto.
+  delete from public.audit_logs where id is not null;
   get diagnostics removed = row_count;
   insert into public.audit_logs(actor_id,actor_email,operation,entity,new_data)
   values(auth.uid(),coalesce(auth.jwt()->>'email',current_user),'CLEAR','audit_logs',jsonb_build_object('deleted_count',removed));

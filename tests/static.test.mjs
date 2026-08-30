@@ -78,6 +78,11 @@ const accessMigration = await readFile(resolve(root, "supabase-access-ui-migrati
 assert.match(accessMigration, /set role = 'consulta' where role = 'auditor'/, "Auditores existentes devem migrar com segurança para Consulta");
 assert.match(accessMigration, /audit_read[\s\S]*public\.is_admin\(\)/, "Somente Admin pode ler a auditoria");
 assert.match(accessMigration, /clear_audit_logs[\s\S]*public\.is_admin\(\)/, "A limpeza deve validar o perfil Admin no banco");
+assert.match(accessMigration, /delete from public\.audit_logs where id is not null;/, "A limpeza deve usar um filtro explicito compativel com a protecao contra DELETE sem WHERE");
+assert.doesNotMatch(accessMigration, /delete from public\.audit_logs\s*;/, "A limpeza nao pode executar DELETE sem WHERE");
+const setupSql = await readFile(resolve(root, "supabase-setup.sql"), "utf8");
+assert.match(setupSql, /delete from public\.audit_logs where id is not null;/, "A instalacao completa deve conter a correcao da limpeza de auditoria");
+assert.doesNotMatch(setupSql, /delete from public\.audit_logs\s*;/, "A instalacao completa nao pode recriar o DELETE sem WHERE");
 assert.match(await readFile(resolve(root, "data-service.js"), "utf8"), /rpc\("clear_audit_logs"\)/, "A limpeza deve usar a função protegida do banco");
 assert.match(app, /LIMPAR AUDITORIA[\s\S]*clearAuditLogs\(\)/, "A limpeza deve exigir confirmação explícita");
 const palette = new Set(["#01426A","#0067A0","#007B5F","#00B388","#FFCD00","#FBDB65"]);

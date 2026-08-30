@@ -25,7 +25,9 @@ begin
     raise exception 'Somente administradores podem limpar a auditoria' using errcode='42501';
   end if;
 
-  delete from public.audit_logs;
+  -- O filtro explicito preserva a intencao de apagar todos os registros e
+  -- atende a protecao contra DELETE sem WHERE habilitada no projeto.
+  delete from public.audit_logs where id is not null;
   get diagnostics removed = row_count;
 
   -- Mantém um registro mínimo da própria operação de limpeza.
