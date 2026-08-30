@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const allowedRoles = new Set(["admin", "gestor", "consulta", "auditor"]);
+const allowedRoles = new Set(["admin", "gestor", "consulta"]);
 const siteUrl = Deno.env.get("SITE_URL") ?? "https://aagsf1.github.io/gratificacoes/";
 
 function response(body: Record<string, unknown>, status: number, origin: string) {

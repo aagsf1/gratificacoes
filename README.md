@@ -8,13 +8,13 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 - cadastro de usuários por convite, disponível somente para administradores;
 - exclusão administrativa de usuários com confirmação reforçada, proteção contra autoexclusão e preservação do último administrador;
 - painel de usuários online por heartbeat protegido por RLS;
-- perfis `admin`, `gestor`, `consulta` e `auditor`;
-- RLS no PostgreSQL e trilha de auditoria imutável para usuários do app;
+- perfis `admin`, `gestor` e `consulta`;
+- RLS no PostgreSQL e trilha de auditoria protegida, com limpeza exclusiva do administrador;
 - cadastro e inativação de gratificações por `admin` e `gestor`;
 - dashboard e filtros operacionais;
 - relatório customizável com título, seleção de campos, busca, filtros por CJ, situação, vínculo, status e unidade, agrupamento, ordenação, métricas, CSV e impressão;
 - Relatório Quadro CSJT com Situação Anterior e Situação Atual, quadros de orçamento, proporção e saldo, paleta verde/azul/amarela e impressão A4 paisagem;
-- cálculos financeiros com quatro casas decimais;
+- cálculos financeiros internos com quatro casas decimais e exibição padronizada em duas casas;
 - somente CJ-01, CJ-02, CJ-03 e CJ-04.
 
 ## Configuração
@@ -51,6 +51,8 @@ O modelo de convite não usa `ConfirmationURL`: o botão do e-mail apenas abre o
 ## Administração de usuários
 
 A exclusão permanente é executada exclusivamente pela Edge Function `delete-user`, depois de validar novamente a sessão e o perfil do administrador. A aplicação impede a autoexclusão e a remoção do último administrador ativo. A operação exige que o administrador digite o e-mail do usuário e é registrada em `audit_logs`.
+
+A trilha de auditoria é exclusiva do perfil `admin`. A opção **Limpar registros** exige a confirmação textual `LIMPAR AUDITORIA` e chama uma função protegida no banco; a própria limpeza deixa um novo registro com a quantidade removida. Em projetos existentes, execute também `supabase-access-ui-migration.sql`: usuários com o perfil antigo `auditor` são migrados para `consulta`.
 
 O quadro **Usuários online agora** usa heartbeats na tabela `user_presence`. Cada aba autenticada pode gravar e remover somente a própria sessão; apenas administradores podem consultar as sessões dos demais usuários. Uma sessão é considerada online enquanto seu heartbeat tiver menos de 90 segundos. “Online” significa que a aplicação está aberta e ativa, não apenas que existe uma sessão Auth ainda válida. A lista é informativa e não é usada para decisões de autorização.
 

@@ -19,13 +19,14 @@ async function functionResponse(data, error) {
   return data;
 }
 
-export async function loadApplicationData() {
+export async function loadApplicationData(role) {
+  const isAdmin = role === "admin";
   const [gratificacoes, tipos, cenarios, auditoria, perfis] = await Promise.all([
     db().from("gratificacoes_detalhadas").select("*").order("legacy_order", { ascending: true }),
     db().from("tipos_gratificacao").select("*").eq("ativo", true).order("codigo"),
     db().from("cenarios").select("*").order("competencia", { ascending: false }),
-    db().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500),
-    db().from("profiles").select("id,email,nome,role,ativo").order("nome"),
+    isAdmin ? db().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500) : Promise.resolve({ data: [], error: null }),
+    isAdmin ? db().from("profiles").select("id,email,nome,role,ativo").order("nome") : Promise.resolve({ data: [], error: null }),
   ]);
   for (const result of [gratificacoes, tipos, cenarios]) if (result.error) throw result.error;
   return {
@@ -80,4 +81,10 @@ export async function deleteUser(userId) {
     body: { userId },
   });
   return functionResponse(data, error);
+}
+
+export async function clearAuditLogs() {
+  const { data, error } = await db().rpc("clear_audit_logs");
+  if (error) throw error;
+  return Number(data ?? 0);
 }

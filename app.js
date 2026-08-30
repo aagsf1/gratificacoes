@@ -1,13 +1,14 @@
 import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
-import { deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js?v=20260829-admin";
+import { clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js?v=20260829-institutional-v1";
 import { decimal4, fromDecimal4, summarize, summarizeCsjt } from "./calc.js?v=20260829-admin";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
 const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting" };
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
-const money = (value, digits = 2) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+const money = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+const percentage = value => `${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 const dateTime = value => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium" }).format(new Date(value)) : "—";
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const canWrite = () => ["admin", "gestor"].includes(state.identity?.profile.role);
@@ -19,9 +20,9 @@ const REPORT_FIELDS = [
   { key: "com_vinculo", label: "Vínculo", groupable: true, format: row => row.com_vinculo ? "Com vínculo" : "Sem vínculo" },
   { key: "situacao", label: "Situação", groupable: true },
   { key: "unidade_sigla", label: "Sigla", groupable: true },
-  { key: "valor_integral", label: "Valor integral", numeric: true, format: row => money(Number(row.valor_integral), 2) },
-  { key: "percentual_aplicado", label: "% aplicado", numeric: true, format: row => `${(row.com_vinculo ? Number(row.percentual_com_vinculo) * 100 : 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%` },
-  { key: "valor_pago", label: "Valor pago", numeric: true, format: row => money(Number(row.valor_pago), 4) },
+  { key: "valor_integral", label: "Valor integral", numeric: true, format: row => money(Number(row.valor_integral)) },
+  { key: "percentual_aplicado", label: "% aplicado", numeric: true, format: row => percentage(row.com_vinculo ? Number(row.percentual_com_vinculo) * 100 : 100) },
+  { key: "valor_pago", label: "Valor pago", numeric: true, format: row => money(Number(row.valor_pago)) },
   { key: "observacoes", label: "Observações" },
   { key: "ativo", label: "Status", groupable: true, format: row => row.ativo ? "Ativa" : "Inativa" },
 ];
@@ -55,7 +56,8 @@ let recoveryCodePending = authQuery.get("recovery") === "1" || authQuery.get("in
 function toast(message, error = false) {
   const element = $("#toast");
   element.textContent = message;
-  element.style.background = error ? "#9f2d2d" : "#152542";
+  element.style.background = error ? "#FFCD00" : "#01426A";
+  element.style.color = error ? "#01426A" : "white";
   element.classList.add("show");
   setTimeout(() => element.classList.remove("show"), 3500);
 }
@@ -131,12 +133,12 @@ function refreshSummary() {
 function renderCards() {
   const t = state.summary.totals;
   const cards = [
-    ["Orçamento paradigma", money(fromDecimal4(t.budget4), 2)],
-    ["Total pago", money(fromDecimal4(t.paid4), 4)],
-    ["Saldo", money(fromDecimal4(t.balance4), 4), t.balance4 >= 0n ? "good" : "warn"],
-    ["Execução", `${(t.execution * 100).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`, t.execution > 1 ? "warn" : ""],
+    ["Orçamento paradigma", money(fromDecimal4(t.budget4))],
+    ["Total pago", money(fromDecimal4(t.paid4))],
+    ["Saldo", money(fromDecimal4(t.balance4)), t.balance4 >= 0n ? "good" : "warn"],
+    ["Execução", percentage(t.execution * 100), t.execution > 1 ? "warn" : ""],
     ["Gratificações", t.count], ["Com vínculo", t.linked], ["Sem vínculo", t.unlinked],
-    ["Proporção com vínculo", `${(t.count ? t.linked / t.count * 100 : 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`],
+    ["Proporção com vínculo", percentage(t.count ? t.linked / t.count * 100 : 0)],
   ];
   $("#cards").innerHTML = cards.map(([label, value, className = ""]) => `<article class="card ${className}"><small>${label}</small><strong>${value}</strong></article>`).join("");
 }
@@ -144,7 +146,7 @@ function renderCards() {
 function renderSummary() {
   const max = Math.max(...state.summary.rows.map(row => row.count), 1);
   $("#type-bars").innerHTML = state.summary.rows.map(row => `<div class="bar-row"><strong>${row.codigo}</strong><div class="bar"><span style="width:${row.count / max * 100}%"></span></div><span>${row.count}</span></div>`).join("");
-  $("#summary-table").innerHTML = `<thead><tr><th>Tipo</th><th class="number">Com vínculo</th><th class="number">Sem vínculo</th><th class="number">Total</th><th class="number">Valor pago</th></tr></thead><tbody>${state.summary.rows.map(row => `<tr><td>${row.codigo}</td><td class="number">${row.linked}</td><td class="number">${row.unlinked}</td><td class="number">${row.count}</td><td class="number">${money(fromDecimal4(row.paid4), 4)}</td></tr>`).join("")}</tbody>`;
+  $("#summary-table").innerHTML = `<thead><tr><th>Tipo</th><th class="number">Com vínculo</th><th class="number">Sem vínculo</th><th class="number">Total</th><th class="number">Valor pago</th></tr></thead><tbody>${state.summary.rows.map(row => `<tr><td>${row.codigo}</td><td class="number">${row.linked}</td><td class="number">${row.unlinked}</td><td class="number">${row.count}</td><td class="number">${money(fromDecimal4(row.paid4))}</td></tr>`).join("")}</tbody>`;
 }
 
 function filteredGrants() {
@@ -159,7 +161,7 @@ function filteredGrants() {
 
 function renderGrants() {
   const rows = filteredGrants();
-  $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canWrite() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago), 4)}</td>${canWrite() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}">Inativar</button></td>` : ""}</tr>`).join("")}</tbody>`;
+  $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canWrite() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago))}</td>${canWrite() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}">Inativar</button></td>` : ""}</tr>`).join("")}</tbody>`;
 }
 
 function csjtValues(summary) {
@@ -171,7 +173,7 @@ function csjtValues(summary) {
 }
 
 function csjtLine({ row, linkedPaid4, unlinkedPaid4 }) {
-  return `<div class="csjt-row"><div class="csjt-cell green cargo">${row.codigo.replace("CJ-0", "CJ-")}</div><div class="csjt-cell blue">${row.linked}</div><div class="csjt-cell blue money">${money(fromDecimal4(linkedPaid4), 2)}</div><div class="csjt-cell yellow">${row.unlinked}</div><div class="csjt-cell yellow money">${money(fromDecimal4(unlinkedPaid4), 2)}</div><div class="csjt-cell green">${row.count}</div><div class="csjt-cell green money">${money(fromDecimal4(row.paid4), 2)}</div></div>`;
+  return `<div class="csjt-row"><div class="csjt-cell green cargo">${row.codigo.replace("CJ-0", "CJ-")}</div><div class="csjt-cell blue">${row.linked}</div><div class="csjt-cell blue money">${money(fromDecimal4(linkedPaid4))}</div><div class="csjt-cell yellow">${row.unlinked}</div><div class="csjt-cell yellow money">${money(fromDecimal4(unlinkedPaid4))}</div><div class="csjt-cell green">${row.count}</div><div class="csjt-cell green money">${money(fromDecimal4(row.paid4))}</div></div>`;
 }
 
 function csjtSection(title, summary, current = false) {
@@ -179,9 +181,9 @@ function csjtSection(title, summary, current = false) {
   const linkedPaid4 = values.reduce((sum, item) => sum + item.linkedPaid4, 0n);
   const unlinkedPaid4 = values.reduce((sum, item) => sum + item.unlinkedPaid4, 0n);
   const t = summary.totals;
-  const ratio = value => `${(t.count ? value / t.count * 100 : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%`;
-  const total = `<div class="csjt-row csjt-total"><div class="csjt-cell green cargo">Total</div><div class="csjt-cell blue">${t.linked}</div><div class="csjt-cell blue money">${money(fromDecimal4(linkedPaid4), 2)}</div><div class="csjt-cell yellow">${t.unlinked}</div><div class="csjt-cell yellow money">${money(fromDecimal4(unlinkedPaid4), 2)}</div><div class="csjt-cell green">${t.count}</div><div class="csjt-cell green money">${money(fromDecimal4(t.paid4), 2)}</div></div>`;
-  return `<section class="csjt-section ${current ? "proposed" : ""}"><div class="csjt-big-title">${title}</div><div class="csjt-head"><div>Cargo</div><div>Qtd. efetivos</div><div>Valor efetivos</div><div>Qtd. sem vínculo</div><div>Valor sem Vínculo</div><div>Qtd. Total</div><div>Valor Total</div></div><div class="csjt-lines">${values.map(csjtLine).join("")}${total}</div><div class="csjt-bottom"><div class="csjt-info"><div class="info-title">${current ? "Orçamento paradigma (100%) - Situação Anterior" : "Orçamento paradigma (100%)"}</div><div class="info-note">Todas as CJs são calculadas como 100%</div><div class="info-value">${money(fromDecimal4(t.budget4), 2)}</div></div><div class="csjt-info"><div class="info-title proportion-title">${current ? "Proporção de distribuição entre<br>efetivos X sem vínculo" : "Proporção de distribuição efetivo X sem vínculo"}</div><div class="info-note blank">&nbsp;</div><div class="info-value proportion"><span>${ratio(t.linked)}</span><b>X</b><span>${ratio(t.unlinked)}</span></div></div><div class="csjt-info"><div class="info-title">${current ? "Sobra orçamentária atual" : "Valor Residual Limite"}</div><div class="info-note">${current ? "Diferença entre o orçamento paradigma e o valor total pago" : "Diferença entre o orçamento paradigma e as CJs 65%"}</div><div class="info-value ${t.balance4 < 0n ? "negative" : ""}">${money(fromDecimal4(t.balance4), 2)}</div></div></div></section>`;
+  const ratio = value => percentage(t.count ? value / t.count * 100 : 0);
+  const total = `<div class="csjt-row csjt-total"><div class="csjt-cell green cargo">Total</div><div class="csjt-cell blue">${t.linked}</div><div class="csjt-cell blue money">${money(fromDecimal4(linkedPaid4))}</div><div class="csjt-cell yellow">${t.unlinked}</div><div class="csjt-cell yellow money">${money(fromDecimal4(unlinkedPaid4))}</div><div class="csjt-cell green">${t.count}</div><div class="csjt-cell green money">${money(fromDecimal4(t.paid4))}</div></div>`;
+  return `<section class="csjt-section ${current ? "proposed" : ""}"><div class="csjt-big-title">${title}</div><div class="csjt-head"><div>Cargo</div><div>Qtd. efetivos</div><div>Valor efetivos</div><div>Qtd. sem vínculo</div><div>Valor sem Vínculo</div><div>Qtd. Total</div><div>Valor Total</div></div><div class="csjt-lines">${values.map(csjtLine).join("")}${total}</div><div class="csjt-bottom"><div class="csjt-info"><div class="info-title">${current ? "Orçamento paradigma (100%) - Situação Anterior" : "Orçamento paradigma (100%)"}</div><div class="info-note">Todas as CJs são calculadas como 100%</div><div class="info-value">${money(fromDecimal4(t.budget4))}</div></div><div class="csjt-info"><div class="info-title proportion-title">${current ? "Proporção de distribuição entre<br>efetivos X sem vínculo" : "Proporção de distribuição efetivo X sem vínculo"}</div><div class="info-note blank">&nbsp;</div><div class="info-value proportion"><span>${ratio(t.linked)}</span><b>X</b><span>${ratio(t.unlinked)}</span></div></div><div class="csjt-info"><div class="info-title">${current ? "Sobra orçamentária atual" : "Valor Residual Limite"}</div><div class="info-note">${current ? "Diferença entre o orçamento paradigma e o valor total pago" : "Diferença entre o orçamento paradigma e as CJs 65%"}</div><div class="info-value ${t.balance4 < 0n ? "negative" : ""}">${money(fromDecimal4(t.balance4))}</div></div></div></section>`;
 }
 
 function scenarioCompetence() {
@@ -278,7 +280,7 @@ function reportResults(rows, fields) {
   }
   return [...groups.entries()].map(([group, records]) => {
     const paid = records.reduce((sum, row) => sum + Number(row.valor_pago || 0), 0);
-    return `<section class="report-group"><div class="report-group-head"><div><strong>${groupField.label}: ${escapeHtml(group)}</strong><span>${records.length} registro(s)</span></div><b>${money(paid, 4)}</b></div>${reportTable(records, fields)}</section>`;
+    return `<section class="report-group"><div class="report-group-head"><div><strong>${groupField.label}: ${escapeHtml(group)}</strong><span>${records.length} registro(s)</span></div><b>${money(paid)}</b></div>${reportTable(records, fields)}</section>`;
   }).join("") || reportTable([], fields);
 }
 
@@ -294,7 +296,7 @@ function renderReport() {
   $("#report-status").textContent = `${rows.length} registro${rows.length === 1 ? "" : "s"} selecionado${rows.length === 1 ? "" : "s"}`;
   $("#report-output-title").textContent = reportConfig.title;
   $("#report-generated").textContent = `Competência ${scenarioCompetence()} · Gerado em ${new Date().toLocaleString("pt-BR")}`;
-  $("#report-metrics").innerHTML = `<article class="card"><small>Registros</small><strong>${rows.length}</strong><span>${linked} com vínculo · ${unlinked} sem vínculo</span></article><article class="card"><small>Valor pago selecionado</small><strong>${money(totalPaid, 4)}</strong></article><article class="card"><small>Valor integral selecionado</small><strong>${money(totalIntegral, 2)}</strong></article><article class="card"><small>Saldo vs. paradigma</small><strong class="${balance >= 0 ? "report-good" : "report-danger"}">${money(balance, 4)}</strong><span>Paradigma menos itens selecionados</span></article>`;
+  $("#report-metrics").innerHTML = `<article class="card"><small>Registros</small><strong>${rows.length}</strong><span>${linked} com vínculo · ${unlinked} sem vínculo</span></article><article class="card"><small>Valor pago selecionado</small><strong>${money(totalPaid)}</strong></article><article class="card"><small>Valor integral selecionado</small><strong>${money(totalIntegral)}</strong></article><article class="card"><small>Saldo vs. paradigma</small><strong class="${balance >= 0 ? "report-good" : "report-danger"}">${money(balance)}</strong><span>Paradigma menos itens selecionados</span></article>`;
   $("#report-results").innerHTML = reportResults(rows, fields);
 }
 
@@ -308,13 +310,14 @@ function setReportView(view) {
 }
 
 function renderAudit() {
-  $("#audit-table").innerHTML = `<thead><tr><th>Data</th><th>Usuário</th><th>Operação</th><th>Entidade</th><th>Registro</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${state.data.auditoria.map(row => `<tr><td>${dateTime(row.created_at)}</td><td>${escapeHtml(row.actor_email || "—")}</td><td>${row.operation}</td><td>${row.entity}</td><td>${row.record_id || "—"}</td><td>${escapeHtml(JSON.stringify(row.old_data) || "—")}</td><td>${escapeHtml(JSON.stringify(row.new_data) || "—")}</td></tr>`).join("")}</tbody>`;
+  const rows = state.data.auditoria.map(row => `<tr><td>${dateTime(row.created_at)}</td><td>${escapeHtml(row.actor_email || "—")}</td><td>${row.operation}</td><td>${row.entity}</td><td>${row.record_id || "—"}</td><td>${escapeHtml(JSON.stringify(row.old_data) || "—")}</td><td>${escapeHtml(JSON.stringify(row.new_data) || "—")}</td></tr>`).join("");
+  $("#audit-table").innerHTML = `<thead><tr><th>Data</th><th>Usuário</th><th>Operação</th><th>Entidade</th><th>Registro</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="empty-state">Nenhum registro de auditoria.</td></tr>'}</tbody>`;
 }
 
 function renderProfiles() {
   $("#profiles-table").innerHTML = `<thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ativo</th><th>Ações</th></tr></thead><tbody>${state.data.perfis.map(row => {
     const ownAccount = row.id === state.identity.profile.id;
-    return `<tr data-profile="${row.id}"><td>${escapeHtml(row.nome || "—")}</td><td>${escapeHtml(row.email)}</td><td><select data-field="role">${["admin","gestor","consulta","auditor"].map(role => `<option ${row.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></td><td><input data-field="ativo" type="checkbox" ${row.ativo ? "checked" : ""}></td><td><div class="row-actions"><button data-save-profile="${row.id}">Salvar</button><button class="danger" data-delete-profile="${row.id}" ${ownAccount ? 'disabled title="Sua própria conta não pode ser excluída"' : ""}>Excluir</button></div></td></tr>`;
+    return `<tr data-profile="${row.id}"><td>${escapeHtml(row.nome || "—")}</td><td>${escapeHtml(row.email)}</td><td><select data-field="role">${["admin","gestor","consulta"].map(role => `<option ${row.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></td><td><input data-field="ativo" type="checkbox" ${row.ativo ? "checked" : ""}></td><td><div class="row-actions"><button data-save-profile="${row.id}">Salvar</button><button class="danger" data-delete-profile="${row.id}" ${ownAccount ? 'disabled title="Sua própria conta não pode ser excluída"' : ""}>Excluir</button></div></td></tr>`;
   }).join("")}</tbody>`;
 }
 
@@ -326,7 +329,7 @@ function renderOnlineUsers() {
   status.textContent = state.presenceStatus === "error"
     ? "Presença indisponível"
     : state.presenceStatus === "connecting" ? "Conectando…" : `${online.length} online`;
-  const viewNames = { dashboard: "Dashboard", gratificacoes: "Gratificações", relatorios: "Relatórios", auditoria: "Auditoria", administracao: "Administração" };
+  const viewNames = { dashboard: "Dashboard", gratificacoes: "Quadro de Gratificações", relatorios: "Relatórios", auditoria: "Auditoria", administracao: "Administração" };
   const rows = online.map(entry => {
     const profile = profiles.get(entry.userId);
     return `<tr><td><span class="online-dot" aria-label="Online"></span>${escapeHtml(profile.nome || "—")}</td><td>${escapeHtml(profile.email)}</td><td>${escapeHtml(profile.role)}</td><td>${escapeHtml(viewNames[entry.currentView] || entry.currentView)}</td><td>${dateTime(entry.onlineAt)}</td><td class="number">${entry.connections}</td></tr>`;
@@ -366,7 +369,7 @@ function openGrant(id = null) {
   $("#grant-dialog").showModal();
 }
 
-async function reload() { state.data = await loadApplicationData(); renderAll(); }
+async function reload() { state.data = await loadApplicationData(state.identity.profile.role); renderAll(); }
 
 function bindEvents() {
   $("#login-form").addEventListener("submit", async event => { event.preventDefault(); try { await signIn(event.target.email.value, event.target.password.value); await start(); } catch (error) { toast(error.message, true); } });
@@ -403,7 +406,7 @@ function bindEvents() {
     } catch (error) { toast(error.message, true); }
   });
   $("#logout").addEventListener("click", async () => { await stopPresence(); await signOut(); location.reload(); });
-  $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; if (button.dataset.view === "relatorios") setReportView(button.dataset.reportView || "custom"); updateNewGrantVisibility(button.dataset.view); void updatePresence(button.dataset.view); }));
+  $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; const directCsjt = button.dataset.reportView === "csjt"; $("#report-switcher").hidden = directCsjt; if (button.dataset.view === "relatorios") setReportView(directCsjt ? "csjt" : "custom"); updateNewGrantVisibility(button.dataset.view); void updatePresence(button.dataset.view); }));
   $("#new-grant").addEventListener("click", () => openGrant());
   ["#search","#filter-type","#filter-link"].forEach(selector => $(selector).addEventListener("input", renderGrants));
   ["#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));
@@ -412,6 +415,20 @@ function bindEvents() {
   $("#reset-report").addEventListener("click", () => { reportConfig = { ...DEFAULT_REPORT_CONFIG, fields: [...DEFAULT_REPORT_CONFIG.fields] }; saveReportConfig(); applyReportConfig(); renderReport(); toast("Configuração do relatório restaurada."); });
   $("#show-custom-report").addEventListener("click", () => { $("#page-title").textContent = "Relatórios"; setReportView("custom"); });
   $("#show-csjt-report").addEventListener("click", () => { $("#page-title").textContent = "Relatórios"; setReportView("csjt"); });
+  $("#clear-audit").addEventListener("click", async event => {
+    const confirmation = prompt('Esta ação removerá permanentemente o histórico atual. Digite "LIMPAR AUDITORIA" para confirmar.');
+    if (confirmation !== "LIMPAR AUDITORIA") {
+      if (confirmation !== null) toast("Confirmação incorreta. Nenhum registro foi removido.", true);
+      return;
+    }
+    event.currentTarget.disabled = true;
+    try {
+      const deleted = await clearAuditLogs();
+      await reload();
+      toast(`${deleted} registro${deleted === 1 ? " removido" : "s removidos"}. A limpeza foi registrada na auditoria.`);
+    } catch (error) { toast(error.message, true); }
+    finally { event.currentTarget.disabled = false; }
+  });
   $("#grants-table").addEventListener("click", async event => { const edit = event.target.dataset.edit; const remove = event.target.dataset.delete; if (edit) openGrant(edit); if (remove && confirm("Inativar esta gratificação?")) { try { await inactivateGrant(remove); await reload(); toast("Gratificação inativada."); } catch (error) { toast(error.message, true); } } });
   $("#grant-form").addEventListener("submit", async event => { event.preventDefault(); const form = new FormData(event.target); const record = Object.fromEntries(form); record.com_vinculo = record.com_vinculo === "true"; record.cenario_id = event.target.dataset.scenarioId; try { await saveGrant(record); $("#grant-dialog").close(); await reload(); toast("Gratificação salva."); } catch (error) { toast(error.message, true); } });
   $("#profiles-table").addEventListener("click", async event => {
@@ -459,7 +476,7 @@ async function start() {
   if (passwordRecoveryPending) return;
   state.identity = await currentIdentity();
   if (!state.identity) return;
-  state.data = await loadApplicationData();
+  state.data = await loadApplicationData(state.identity.profile.role);
   $("#login-view").hidden = true; $("#app-view").hidden = false;
   $("#profile-name").textContent = state.identity.profile.nome || state.identity.profile.email;
   $("#profile-role").textContent = state.identity.profile.role;

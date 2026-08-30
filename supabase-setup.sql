@@ -2,7 +2,7 @@
 -- Este script usa somente auth.uid(); nenhuma chave secreta é necessária.
 create extension if not exists pgcrypto;
 
-create type public.app_role as enum ('admin','gestor','consulta','auditor');
+create type public.app_role as enum ('admin','gestor','consulta');
 create type public.cenario_status as enum ('RASCUNHO','EM ANÁLISE','APROVADO','ARQUIVADO','VIGENTE');
 
 create table public.profiles (
@@ -77,7 +77,7 @@ create function public.current_role() returns public.app_role language sql stabl
   select role from public.profiles where id = auth.uid() and ativo;
 $$;
 create function public.is_reader() returns boolean language sql stable security definer set search_path=public as $$
-  select coalesce(public.current_role() in ('admin','gestor','consulta','auditor'), false);
+  select coalesce(public.current_role() in ('admin','gestor','consulta'), false);
 $$;
 create function public.is_writer() returns boolean language sql stable security definer set search_path=public as $$
   select coalesce(public.current_role() in ('admin','gestor'), false);
@@ -116,6 +116,17 @@ create trigger audit_tipos after insert or update or delete on public.tipos_grat
 create trigger audit_cenarios after insert or update or delete on public.cenarios for each row execute function public.audit_change();
 create trigger audit_profiles after update on public.profiles for each row execute function public.audit_change();
 
+create function public.clear_audit_logs() returns integer language plpgsql security definer set search_path=public as $$
+declare removed integer;
+begin
+  if not public.is_admin() then raise exception 'Somente administradores podem limpar a auditoria' using errcode='42501'; end if;
+  delete from public.audit_logs;
+  get diagnostics removed = row_count;
+  insert into public.audit_logs(actor_id,actor_email,operation,entity,new_data)
+  values(auth.uid(),coalesce(auth.jwt()->>'email',current_user),'CLEAR','audit_logs',jsonb_build_object('deleted_count',removed));
+  return removed;
+end $$;
+
 create view public.gratificacoes_detalhadas with (security_invoker=true) as
 select g.*,t.codigo tipo_codigo,t.valor_integral,t.percentual_com_vinculo,t.valor_com_vinculo,
        case when g.com_vinculo then t.valor_com_vinculo else t.valor_integral end valor_pago
@@ -137,7 +148,7 @@ create policy cenarios_admin_write on public.cenarios for all using (public.is_a
 create policy gratificacoes_read on public.gratificacoes for select using (public.is_reader());
 create policy gratificacoes_insert on public.gratificacoes for insert with check (public.is_writer());
 create policy gratificacoes_update on public.gratificacoes for update using (public.is_writer()) with check (public.is_writer());
-create policy audit_read on public.audit_logs for select using (public.current_role() in ('admin','auditor'));
+create policy audit_read on public.audit_logs for select using (public.is_admin());
 create policy user_presence_read on public.user_presence for select to authenticated
   using (user_id=auth.uid() or public.is_admin());
 create policy user_presence_insert on public.user_presence for insert to authenticated
@@ -156,6 +167,8 @@ grant insert,update,delete on public.tipos_gratificacao,public.cenarios to authe
 grant select on public.audit_logs to authenticated;
 grant select on public.gratificacoes_detalhadas to authenticated;
 grant select,insert,update,delete on public.user_presence to authenticated;
+revoke all on function public.clear_audit_logs() from public,anon;
+grant execute on function public.clear_audit_logs() to authenticated;
 
 insert into public.tipos_gratificacao(codigo,descricao,valor_integral,percentual_com_vinculo) values
 ('CJ-01','Cargo em comissão CJ-01',11870.0000,.6500),

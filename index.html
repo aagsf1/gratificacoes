@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>Gestão de Gratificações</title>
-  <link rel="stylesheet" href="./styles.css?v=20260829-presence-v2">
-  <link rel="stylesheet" href="./reports.css?v=20260829-presence-v2">
+  <link rel="stylesheet" href="./styles.css?v=20260829-institutional-v1">
+  <link rel="stylesheet" href="./reports.css?v=20260829-institutional-v1">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="./app.js?v=20260829-presence-v3"></script>
+  <script type="module" src="./app.js?v=20260829-institutional-v1"></script>
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -56,16 +56,16 @@
       <div class="brand"><span>GG</span><div><strong>Gratificações</strong><small>Gestão institucional</small></div></div>
       <nav aria-label="Menu principal">
         <button data-view="dashboard" class="active">Dashboard</button>
-        <button data-view="gratificacoes">Gratificações</button>
+        <button data-view="gratificacoes">Quadro de Gratificações</button>
         <button data-view="relatorios">Relatórios</button>
         <button data-view="relatorios" data-report-view="csjt">Quadro CSJT</button>
-        <button data-view="auditoria" data-role="auditor,admin">Auditoria</button>
+        <button data-view="auditoria" data-role="admin">Auditoria</button>
         <button data-view="administracao" data-role="admin">Administração</button>
       </nav>
       <div class="identity"><strong id="profile-name"></strong><small id="profile-role"></small><button id="logout" class="link-button">Sair</button></div>
     </aside>
     <main class="content">
-      <header><div><p class="eyebrow">Cenário vigente</p><h1 id="page-title">Dashboard</h1></div><button id="new-grant" data-write hidden>Nova gratificação</button></header>
+      <header><h1 id="page-title">Dashboard</h1><button id="new-grant" data-write hidden>Nova gratificação</button></header>
       <section id="dashboard" class="view active-view">
         <div id="cards" class="cards"></div>
         <div class="panel"><h2>Distribuição por CJ</h2><div id="type-bars" class="bars"></div></div>
@@ -76,7 +76,7 @@
         <div class="panel table-wrap"><table id="grants-table"></table></div>
       </section>
       <section id="relatorios" class="view">
-        <div class="report-switcher" role="group" aria-label="Tipo de relatório">
+        <div id="report-switcher" class="report-switcher" role="group" aria-label="Tipo de relatório">
           <button id="show-custom-report" type="button">Relatório customizável</button>
           <button id="show-csjt-report" class="secondary" type="button">Quadro CSJT</button>
         </div>
@@ -109,7 +109,7 @@
           <div id="csjt-sheet" class="csjt-report" aria-label="Relatório Quadro CSJT"></div>
         </div>
       </section>
-      <section id="auditoria" class="view"><div class="panel"><h2>Trilha de auditoria</h2><div class="table-wrap"><table id="audit-table"></table></div></div></section>
+      <section id="auditoria" class="view"><div class="panel"><div class="section-title"><div><h2>Trilha de auditoria</h2><p class="muted">Histórico das alterações realizadas na aplicação.</p></div><button id="clear-audit" class="danger" type="button">Limpar registros</button></div><div class="table-wrap"><table id="audit-table"></table></div></div></section>
       <section id="administracao" class="view">
         <div class="panel">
           <h2>Cadastrar usuário</h2>
@@ -117,7 +117,7 @@
           <form id="user-form" class="toolbar">
             <label>Nome<input name="nome" autocomplete="name" required></label>
             <label>E-mail<input name="email" type="email" autocomplete="email" required></label>
-            <label>Perfil<select name="role" required><option value="consulta">consulta</option><option value="gestor">gestor</option><option value="auditor">auditor</option><option value="admin">admin</option></select></label>
+            <label>Perfil<select name="role" required><option value="consulta">consulta</option><option value="gestor">gestor</option><option value="admin">admin</option></select></label>
             <button type="submit">Cadastrar e enviar convite</button>
           </form>
         </div>
