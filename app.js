@@ -195,7 +195,7 @@ function renderCsjt() {
   const scenario = currentScenario();
   const summaries = summarizeCsjt(state.data.gratificacoesTodas, state.data.tipos, scenario?.orcamento_paradigma ?? 0);
   $("#csjt-competence").textContent = `Competência ${scenarioCompetence()} · situação atual recalculada a partir dos registros ativos`;
-  $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior", summaries.previous)}${csjtSection("Situação Atual", summaries.current, true)}`;
+  $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior (30/06/2022)", summaries.previous)}${csjtSection("Situação Atual", summaries.current, true)}`;
 }
 
 function saveReportConfig() { try { localStorage.setItem(REPORT_STORAGE, JSON.stringify(reportConfig)); } catch { /* Preferências locais são opcionais. */ } }

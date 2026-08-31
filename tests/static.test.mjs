@@ -45,7 +45,7 @@ assert.match(html, /id="report-title"[\s\S]*id="report-group"[\s\S]*id="report-o
 assert.match(html, /id="csjt-report-view"[\s\S]*id="csjt-sheet"/, "O Quadro CSJT deve existir como relatório próprio");
 assert.doesNotMatch(html, /SIMULAÇÕES|Incremento efetivos/i, "O Quadro CSJT não deve reproduzir a simulação da página de referência");
 assert.match(await readFile(resolve(root, "app.js"), "utf8"), /summarizeCsjt\(state\.data\.gratificacoesTodas/, "O Quadro CSJT deve ser calculado com os dados carregados da aplicação");
-assert.match(await readFile(resolve(root, "app.js"), "utf8"), /csjtSection\("Situação Anterior"[\s\S]*csjtSection\("Situação Atual"/, "O Quadro CSJT deve apresentar as situações anterior e atual nessa ordem");
+assert.match(await readFile(resolve(root, "app.js"), "utf8"), /csjtSection\("Situação Anterior \(30\/06\/2022\)"[\s\S]*csjtSection\("Situação Atual"/, "O Quadro CSJT deve apresentar a situação anterior datada e a situação atual nessa ordem");
 assert.match(await readFile(resolve(root, "reports.css"), "utf8"), /\.csjt-bottom[\s\S]*\.info-value[\s\S]*body\.printing-csjt/, "O Quadro CSJT deve manter os quadros inferiores e a impressão da referência");
 assert.match(app, /updateNewGrantVisibility\(button\.dataset\.view\)/, "Nova gratificação deve acompanhar a seção ativa");
 assert.match(app, /activeView === "gratificacoes"/, "Nova gratificação deve aparecer somente em Gratificações");
