@@ -56,15 +56,19 @@ export async function saveGrant(record) {
     ativo: true,
   };
   const query = record.id
-    ? db().from("gratificacoes").update({ ...payload, cenario_id: undefined }).eq("id", record.id)
-    : db().from("gratificacoes").insert(payload);
-  const { error } = await query;
+    ? db().from("gratificacoes").update({ ...payload, cenario_id: undefined })
+      .eq("id", record.id).eq("lock_version", Number(record.lock_version)).select("id").maybeSingle()
+    : db().from("gratificacoes").insert(payload).select("id").single();
+  const { data, error } = await query;
   if (error) throw error;
+  if (record.id && !data) throw new Error("Esta gratificação foi alterada por outra sessão. Recarregue os dados e tente novamente.");
 }
 
-export async function inactivateGrant(id) {
-  const { error } = await db().from("gratificacoes").update({ ativo: false }).eq("id", id);
+export async function inactivateGrant(id, lockVersion) {
+  const { data, error } = await db().from("gratificacoes").update({ ativo: false })
+    .eq("id", id).eq("lock_version", Number(lockVersion)).select("id").maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error("Esta gratificação foi alterada por outra sessão. Recarregue os dados e tente novamente.");
 }
 
 export async function updateProfile(id, role, ativo) {
@@ -93,9 +97,20 @@ export async function saveFinancialReferences(payload) {
     p_orcamento_paradigma: payload.orcamentoParadigma,
     p_activate: payload.activate,
     p_references: payload.references,
+    p_source_cenario_id: payload.sourceScenarioId || null,
+    p_copy_grants: Boolean(payload.copyGrants),
+    p_data_complete: Boolean(payload.dataComplete),
   });
   if (error) throw error;
   return data;
+}
+
+export async function changeCompetenceStatus(cenarioId, status) {
+  const { error } = await db().rpc("change_competence_status", {
+    target_id: cenarioId,
+    target_status: status,
+  });
+  if (error) throw error;
 }
 
 export async function clearAuditLogs() {

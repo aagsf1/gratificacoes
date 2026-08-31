@@ -99,7 +99,7 @@ dialog form{display:grid;gap:1rem}
 .reference-status{display:inline-flex;justify-self:start;border-radius:99px;padding:.35rem .7rem;background:color-mix(in srgb,#0067A0 12%,white);color:#01426A;font-size:.8rem;font-weight:750}
 #references-table input[type=number]{min-width:125px;text-align:right;font-variant-numeric:tabular-nums}
 .reference-custom{display:flex;align-items:center;gap:.45rem;white-space:normal;min-width:155px}
-.reference-save{display:flex;justify-content:flex-end;align-items:center;gap:1rem;margin-top:1rem}
+.reference-save{display:flex;justify-content:flex-end;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem}
 #reference-validation{color:#01426A;font-weight:650}
 .custom-reference-row{background:color-mix(in srgb,#FBDB65 24%,white)}
 @media(max-width:900px){.app-shell{grid-template-columns:1fr}aside{position:static;height:auto}.brand{grid-template-columns:minmax(190px,250px) 1fr;align-items:center}.brand>strong{font-size:1.2rem}nav{grid-template-columns:repeat(3,1fr);margin-top:1rem}.identity{margin-top:1rem}.cards{grid-template-columns:repeat(2,1fr)}}

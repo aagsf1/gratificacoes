@@ -1,10 +1,10 @@
 import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
-import { clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateProfile } from "./data-service.js?v=20260831-references-v1";
-import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjt } from "./calc.js?v=20260831-references-v1";
+import { changeCompetenceStatus, clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateProfile } from "./data-service.js?v=20260831-history-v1";
+import { decimal4, fromDecimal4, linkedValueFromPercent, summarize } from "./calc.js?v=20260831-history-v1";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
-const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", referenceScenarioId: null };
+const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null, csjtPreviousScenarioId: null, csjtCurrentScenarioId: null };
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const money = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -14,6 +14,8 @@ const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "
 const canWrite = () => ["admin", "gestor"].includes(state.identity?.profile.role);
 const REPORT_FIELDS = [
   { key: "id", label: "ID" },
+  { key: "competencia", label: "Competência", groupable: true, format: row => String(row.competencia || "").slice(0, 7) },
+  { key: "lineage_id", label: "Identidade histórica" },
   { key: "tipo_codigo", label: "Gratificação", groupable: true },
   { key: "unidade_nome", label: "Unidade", groupable: true },
   { key: "servidor_nome", label: "Servidor" },
@@ -30,7 +32,7 @@ const REPORT_STORAGE = "gratificacoes_report_config_v2";
 const DEFAULT_REPORT_CONFIG = Object.freeze({
   title: "Relatório customizado de gratificações",
   fields: ["tipo_codigo", "unidade_sigla", "unidade_nome", "servidor_nome", "com_vinculo", "situacao", "valor_integral", "valor_pago"],
-  search: "", type: "", link: "", situation: "", unit: "", active: "", group: "", order: "unidade_sigla", direction: "asc",
+  search: "", scenario: "", compareScenario: "", type: "", link: "", situation: "", unit: "", active: "", group: "", order: "unidade_sigla", direction: "asc",
 });
 function loadReportConfig() {
   try {
@@ -121,13 +123,27 @@ function showLogin() {
   $("#email").focus();
 }
 
-function currentScenario() {
-  return state.data.cenarios.find(item => item.status === "VIGENTE") ?? state.data.cenarios[0];
+const SCENARIO_LABELS = { RASCUNHO: "Rascunho", VIGENTE: "Vigente", APROVADO: "Encerrada", ARQUIVADO: "Arquivada", "EM ANÁLISE": "Em análise" };
+function vigenteScenario() { return state.data.cenarios.find(item => item.status === "VIGENTE") ?? state.data.cenarios[0]; }
+function currentScenario() { return state.data.cenarios.find(item => item.id === state.scenarioId) ?? vigenteScenario(); }
+function grantsForScenario(scenarioId, includeInactive = false) {
+  return state.data.gratificacoesTodas.filter(row => row.cenario_id === scenarioId && (includeInactive || row.ativo));
+}
+function currentGrants(includeInactive = false) { return grantsForScenario(currentScenario()?.id, includeInactive); }
+function canEditScenario(scenario = currentScenario()) { return canWrite() && ["RASCUNHO","VIGENTE"].includes(scenario?.status); }
+function scenarioTypes(scenarioId) {
+  const references = state.data.referencias.filter(row => row.cenario_id === scenarioId);
+  if (references.length) return references.map(row => ({ ...row, id: row.tipo_id }));
+  const rows = grantsForScenario(scenarioId, true);
+  return state.data.tipos.map(type => {
+    const sample = rows.find(row => row.tipo_id === type.id);
+    return sample ? { ...type, valor_integral: sample.valor_integral, percentual_com_vinculo: sample.percentual_com_vinculo, valor_com_vinculo: sample.valor_com_vinculo } : type;
+  });
 }
 
 function refreshSummary() {
   const scenario = currentScenario();
-  state.summary = summarize(state.data.gratificacoes, state.data.tipos, scenario?.orcamento_paradigma ?? 0);
+  state.summary = summarize(currentGrants(), scenarioTypes(scenario?.id), scenario?.orcamento_paradigma ?? 0);
 }
 
 function renderCards() {
@@ -153,7 +169,7 @@ function filteredGrants() {
   const query = $("#search").value.trim().toLocaleLowerCase("pt-BR");
   const type = $("#filter-type").value;
   const link = $("#filter-link").value;
-  return state.data.gratificacoes.filter(row => {
+  return currentGrants().filter(row => {
     const haystack = `${row.servidor_nome} ${row.unidade_nome} ${row.unidade_sigla}`.toLocaleLowerCase("pt-BR");
     return (!query || haystack.includes(query)) && (!type || row.tipo_codigo === type) && (!link || String(row.com_vinculo) === link);
   });
@@ -161,12 +177,12 @@ function filteredGrants() {
 
 function renderGrants() {
   const rows = filteredGrants();
-  $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canWrite() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago))}</td>${canWrite() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}">Inativar</button></td>` : ""}</tr>`).join("")}</tbody>`;
+  $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canEditScenario() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago))}</td>${canEditScenario() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}" data-version="${row.lock_version}">Inativar</button></td>` : ""}</tr>`).join("")}</tbody>`;
 }
 
-function csjtValues(summary) {
+function csjtValues(summary, types) {
   return summary.rows.map(row => {
-    const type = state.data.tipos.find(item => item.codigo === row.codigo);
+    const type = types.find(item => item.codigo === row.codigo);
     const unlinkedPaid4 = decimal4(type.valor_integral) * BigInt(row.unlinked);
     return { row, linkedPaid4: row.paid4 - unlinkedPaid4, unlinkedPaid4 };
   });
@@ -176,8 +192,8 @@ function csjtLine({ row, linkedPaid4, unlinkedPaid4 }) {
   return `<div class="csjt-row"><div class="csjt-cell green cargo">${row.codigo.replace("CJ-0", "CJ-")}</div><div class="csjt-cell blue">${row.linked}</div><div class="csjt-cell blue money">${money(fromDecimal4(linkedPaid4))}</div><div class="csjt-cell yellow">${row.unlinked}</div><div class="csjt-cell yellow money">${money(fromDecimal4(unlinkedPaid4))}</div><div class="csjt-cell green">${row.count}</div><div class="csjt-cell green money">${money(fromDecimal4(row.paid4))}</div></div>`;
 }
 
-function csjtSection(title, summary, current = false) {
-  const values = csjtValues(summary);
+function csjtSection(title, summary, types, current = false) {
+  const values = csjtValues(summary, types);
   const linkedPaid4 = values.reduce((sum, item) => sum + item.linkedPaid4, 0n);
   const unlinkedPaid4 = values.reduce((sum, item) => sum + item.unlinkedPaid4, 0n);
   const t = summary.totals;
@@ -186,16 +202,35 @@ function csjtSection(title, summary, current = false) {
   return `<section class="csjt-section ${current ? "proposed" : ""}"><div class="csjt-big-title">${title}</div><div class="csjt-head"><div>Cargo</div><div>Qtd. efetivos</div><div>Valor efetivos</div><div>Qtd. sem vínculo</div><div>Valor sem Vínculo</div><div>Qtd. Total</div><div>Valor Total</div></div><div class="csjt-lines">${values.map(csjtLine).join("")}${total}</div><div class="csjt-bottom"><div class="csjt-info"><div class="info-title">${current ? "Orçamento paradigma (100%) - Situação Anterior" : "Orçamento paradigma (100%)"}</div><div class="info-note">Todas as CJs são calculadas como 100%</div><div class="info-value">${money(fromDecimal4(t.budget4))}</div></div><div class="csjt-info"><div class="info-title proportion-title">${current ? "Proporção de distribuição entre<br>efetivos X sem vínculo" : "Proporção de distribuição efetivo X sem vínculo"}</div><div class="info-note blank">&nbsp;</div><div class="info-value proportion"><span>${ratio(t.linked)}</span><b>X</b><span>${ratio(t.unlinked)}</span></div></div><div class="csjt-info"><div class="info-title">${current ? "Sobra orçamentária atual" : "Valor Residual Limite"}</div><div class="info-note">${current ? "Diferença entre o orçamento paradigma e o valor total pago" : "Diferença entre o orçamento paradigma e as CJs 65%"}</div><div class="info-value ${t.balance4 < 0n ? "negative" : ""}">${money(fromDecimal4(t.balance4))}</div></div></div></section>`;
 }
 
-function scenarioCompetence() {
-  const value = currentScenario()?.competencia;
+function scenarioCompetence(scenario = currentScenario()) {
+  const value = scenario?.competencia;
   return value ? String(value).slice(0, 7) : "não informada";
 }
 
 function renderCsjt() {
-  const scenario = currentScenario();
-  const summaries = summarizeCsjt(state.data.gratificacoesTodas, state.data.tipos, scenario?.orcamento_paradigma ?? 0);
-  $("#csjt-competence").textContent = `Competência ${scenarioCompetence()} · situação atual recalculada a partir dos registros ativos`;
-  $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior (30/06/2022)", summaries.previous)}${csjtSection("Situação Atual", summaries.current, true)}`;
+  const scenarios = state.data.cenarios;
+  const previous = scenarios.find(row => row.id === state.csjtPreviousScenarioId)
+    ?? scenarios.find(row => String(row.competencia).slice(0, 7) === "2022-06")
+    ?? [...scenarios].sort((a, b) => String(a.competencia).localeCompare(String(b.competencia)))[0];
+  const current = scenarios.find(row => row.id === state.csjtCurrentScenarioId) ?? currentScenario();
+  state.csjtPreviousScenarioId = previous?.id ?? null;
+  state.csjtCurrentScenarioId = current?.id ?? null;
+  $("#csjt-previous-scenario").value = previous?.id ?? "";
+  $("#csjt-current-scenario").value = current?.id ?? "";
+  const previousTypes = scenarioTypes(previous?.id);
+  const currentTypes = scenarioTypes(current?.id);
+  const previousSummary = summarize(grantsForScenario(previous?.id), previousTypes, previous?.orcamento_paradigma ?? 0);
+  const currentSummary = summarize(grantsForScenario(current?.id), currentTypes, current?.orcamento_paradigma ?? 0);
+  const expectedHistorical = String(previous?.competencia).slice(0, 7) === "2022-06";
+  const warning = $("#csjt-history-warning");
+  warning.hidden = Boolean(previous && previous.dados_individualizados_completos && (!expectedHistorical || previousSummary.totals.count === 51));
+  warning.textContent = !previous ? "Nenhuma competência histórica foi cadastrada."
+    : !previous.dados_individualizados_completos ? `A competência ${scenarioCompetence(previous)} possui dados individualizados incompletos.`
+    : expectedHistorical && previousSummary.totals.count !== 51 ? "A competência 2022-06 ainda não contém os 51 registros individualizados esperados; nenhum dado foi inventado."
+    : "";
+  $("#csjt-competence").textContent = `Comparação ${scenarioCompetence(previous)} × ${scenarioCompetence(current)}`;
+  const previousTitle = expectedHistorical ? "Situação Anterior (30/06/2022)" : `Situação Anterior (${scenarioCompetence(previous)})`;
+  $("#csjt-sheet").innerHTML = `${csjtSection(previousTitle, previousSummary, previousTypes)}${csjtSection(`Situação Atual (${scenarioCompetence(current)})`, currentSummary, currentTypes, true)}`;
 }
 
 function saveReportConfig() { try { localStorage.setItem(REPORT_STORAGE, JSON.stringify(reportConfig)); } catch { /* Preferências locais são opcionais. */ } }
@@ -210,6 +245,8 @@ function readReportConfig() {
     title: $("#report-title").value.trim() || DEFAULT_REPORT_CONFIG.title,
     fields: $$("#report-field-options input:checked").map(input => input.value),
     search: $("#report-search").value,
+    scenario: $("#report-scenario").value,
+    compareScenario: $("#report-compare-scenario").value,
     type: $("#report-type").value,
     link: $("#report-link").value,
     situation: $("#report-situation").value,
@@ -225,6 +262,8 @@ function readReportConfig() {
 function applyReportConfig() {
   $("#report-title").value = reportConfig.title;
   $("#report-search").value = reportConfig.search;
+  $("#report-scenario").value = reportConfig.scenario || currentScenario()?.id || "";
+  $("#report-compare-scenario").value = reportConfig.compareScenario || "";
   $("#report-type").value = reportConfig.type;
   $("#report-link").value = reportConfig.link;
   $("#report-situation").value = reportConfig.situation;
@@ -238,9 +277,11 @@ function applyReportConfig() {
 
 function reportRows() {
   const query = reportConfig.search.trim().toLocaleLowerCase("pt-BR");
+  const selectedScenarioId = reportConfig.scenario || currentScenario()?.id;
   const rows = state.data.gratificacoesTodas.filter(row => {
     const haystack = `${row.id} ${row.servidor_nome ?? ""} ${row.unidade_nome ?? ""} ${row.unidade_sigla ?? ""} ${row.tipo_codigo} ${row.situacao} ${row.observacoes ?? ""}`.toLocaleLowerCase("pt-BR");
-    return (!reportConfig.type || row.tipo_codigo === reportConfig.type)
+    return row.cenario_id === selectedScenarioId
+      && (!reportConfig.type || row.tipo_codigo === reportConfig.type)
       && (!reportConfig.situation || row.situacao === reportConfig.situation)
       && (!reportConfig.link || String(row.com_vinculo) === reportConfig.link)
       && (!reportConfig.active || String(row.ativo) === reportConfig.active)
@@ -260,6 +301,41 @@ function reportRows() {
 
 function reportValue(field, row) {
   return field.format ? field.format(row) : (row[field.key] ?? "—");
+}
+
+function comparisonRows() {
+  if (!reportConfig.compareScenario || reportConfig.compareScenario === reportConfig.scenario) return [];
+  const current = new Map(reportRows().map(row => [row.lineage_id, row]));
+  const selected = reportConfig.scenario;
+  reportConfig.scenario = reportConfig.compareScenario;
+  const previous = new Map(reportRows().map(row => [row.lineage_id, row]));
+  reportConfig.scenario = selected;
+  const keys = new Set([...current.keys(), ...previous.keys()]);
+  return [...keys].map(lineageId => {
+    const before = previous.get(lineageId);
+    const after = current.get(lineageId);
+    if (!before) return { kind: "Incluída", before, after };
+    if (!after) return { kind: "Excluída/Inativa", before, after };
+    const changed = ["tipo_codigo","unidade_sigla","unidade_nome","servidor_nome","com_vinculo","situacao","valor_pago","ativo"]
+      .some(key => String(before[key] ?? "") !== String(after[key] ?? ""));
+    return changed ? { kind: "Alterada", before, after } : null;
+  }).filter(Boolean);
+}
+
+function renderReportComparison() {
+  const output = $("#report-comparison");
+  if (!reportConfig.compareScenario || reportConfig.compareScenario === reportConfig.scenario) { output.innerHTML = ""; return; }
+  const rows = comparisonRows();
+  const beforeScenario = state.data.cenarios.find(row => row.id === reportConfig.compareScenario);
+  const afterScenario = state.data.cenarios.find(row => row.id === reportConfig.scenario);
+  const totals = kind => rows.filter(row => row.kind === kind).length;
+  const body = rows.map(change => {
+    const before = change.before;
+    const after = change.after;
+    const record = after || before;
+    return `<tr><td><strong>${change.kind}</strong></td><td>${escapeHtml(record?.tipo_codigo || "—")}</td><td>${escapeHtml(record?.servidor_nome || "—")}</td><td>${escapeHtml(before?.unidade_sigla || "—")}</td><td>${escapeHtml(after?.unidade_sigla || "—")}</td><td class="number">${before ? money(Number(before.valor_pago)) : "—"}</td><td class="number">${after ? money(Number(after.valor_pago)) : "—"}</td></tr>`;
+  }).join("");
+  output.innerHTML = `<section class="panel report-comparison"><div class="section-title"><div><h2>Comparação histórica</h2><p>De ${scenarioCompetence(beforeScenario)} para ${scenarioCompetence(afterScenario)}</p></div><span class="report-badge">${rows.length} alteração(ões)</span></div><div class="comparison-metrics"><span>${totals("Incluída")} incluída(s)</span><span>${totals("Excluída/Inativa")} excluída(s)/inativa(s)</span><span>${totals("Alterada")} alterada(s)</span></div><div class="table-wrap report-table"><table><thead><tr><th>Movimento</th><th>Tipo</th><th>Servidor</th><th>Unidade anterior</th><th>Unidade atual</th><th class="number">Valor anterior</th><th class="number">Valor atual</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="empty-report">Nenhuma diferença encontrada entre as competências selecionadas.</td></tr>'}</tbody></table></div></section>`;
 }
 
 function reportTable(rows, fields) {
@@ -291,12 +367,14 @@ function renderReport() {
   const totalIntegral = rows.reduce((sum, row) => sum + Number(row.valor_integral || 0), 0);
   const linked = rows.filter(row => row.com_vinculo).length;
   const unlinked = rows.length - linked;
-  const budget = Number(currentScenario()?.orcamento_paradigma || 0);
+  const reportScenario = state.data.cenarios.find(row => row.id === (reportConfig.scenario || currentScenario()?.id)) ?? currentScenario();
+  const budget = Number(reportScenario?.orcamento_paradigma || 0);
   const balance = budget - totalPaid;
   $("#report-status").textContent = `${rows.length} registro${rows.length === 1 ? "" : "s"} selecionado${rows.length === 1 ? "" : "s"}`;
   $("#report-output-title").textContent = reportConfig.title;
-  $("#report-generated").textContent = `Competência ${scenarioCompetence()} · Gerado em ${new Date().toLocaleString("pt-BR")}`;
+  $("#report-generated").textContent = `Competência ${scenarioCompetence(reportScenario)} · Gerado em ${new Date().toLocaleString("pt-BR")}`;
   $("#report-metrics").innerHTML = `<article class="card"><small>Registros</small><strong>${rows.length}</strong><span>${linked} com vínculo · ${unlinked} sem vínculo</span></article><article class="card"><small>Valor pago selecionado</small><strong>${money(totalPaid)}</strong></article><article class="card"><small>Valor integral selecionado</small><strong>${money(totalIntegral)}</strong></article><article class="card"><small>Saldo vs. paradigma</small><strong class="${balance >= 0 ? "report-good" : "report-danger"}">${money(balance)}</strong><span>Paradigma menos itens selecionados</span></article>`;
+  renderReportComparison();
   $("#report-results").innerHTML = reportResults(rows, fields);
 }
 
@@ -366,15 +444,26 @@ function renderReferenceTable(rows) {
   $("#references-table").innerHTML = `<thead><tr><th>Tipo</th><th class="number">Valor integral</th><th class="number">% com vínculo</th><th class="number">Valor com vínculo</th><th>Regra</th><th>Situação</th></tr></thead><tbody>${body}</tbody>`;
 }
 
-function renderReferenceDraft({ scenario = null, rows, competence = "", copy = false }) {
+function renderReferenceDraft({ scenario = null, rows, competence = "", copy = false, sourceScenarioId = null }) {
   const form = $("#references-form");
   form.elements.cenario_id.value = scenario?.id ?? "";
+  form.elements.source_cenario_id.value = sourceScenarioId ?? "";
   form.elements.orcamento_paradigma.value = moneyInput(scenario?.orcamento_paradigma ?? currentScenario()?.orcamento_paradigma ?? 0);
   form.elements.competencia.value = competence || String(scenario?.competencia ?? "").slice(0, 7);
   form.elements.activate.checked = scenario?.status === "VIGENTE";
-  $("#reference-status").textContent = scenario ? (scenario.status === "VIGENTE" ? "Competência vigente" : `Situação: ${scenario.status}`) : (copy ? "Nova competência — valores copiados" : "Nova competência — percentual padrão de 65,00%");
+  form.elements.complete_data.checked = scenario?.dados_individualizados_completos ?? (copy && Boolean(state.data.cenarios.find(row => row.id === sourceScenarioId)?.dados_individualizados_completos));
+  const copyField = $("#copy-grants-field");
+  copyField.hidden = !copy;
+  form.elements.copy_grants.checked = copy;
+  $("#reference-status").textContent = scenario ? `Situação: ${SCENARIO_LABELS[scenario.status] || scenario.status}` : (copy ? "Nova competência — referências copiadas" : "Nova competência — percentual padrão de 65,00%");
   $("#reference-validation").textContent = "";
   renderReferenceTable(rows);
+  const editable = !scenario || canEditScenario(scenario);
+  [...form.querySelectorAll('input:not([type="hidden"]),select')].forEach(field => { field.disabled = !editable; });
+  $("#save-references").hidden = !editable;
+  $("#close-competence").hidden = !scenario || !["RASCUNHO","VIGENTE"].includes(scenario.status);
+  $("#archive-competence").hidden = !scenario || scenario.status !== "APROVADO";
+  $("#reopen-competence").hidden = !scenario || !["APROVADO","ARQUIVADO"].includes(scenario.status) || state.identity.profile.role !== "admin";
 }
 
 function nextReferenceCompetence() {
@@ -394,7 +483,7 @@ function renderReferences() {
   state.referenceScenarioId = scenarioId;
   select.value = scenarioId ?? "";
   const scenario = scenarios.find(row => row.id === scenarioId);
-  renderReferenceDraft({ scenario, rows: referenceRows(scenarioId) });
+    renderReferenceDraft({ scenario, rows: referenceRows(scenarioId) });
 }
 
 function collectReferences() {
@@ -416,37 +505,54 @@ function collectReferences() {
 
 function populateOptions() {
   const typeOptions = state.data.tipos.map(item => `<option value="${item.codigo}">${item.codigo}</option>`).join("");
-  $("#filter-type").insertAdjacentHTML("beforeend", typeOptions);
-  $("#report-type").insertAdjacentHTML("beforeend", typeOptions);
+  $("#filter-type").innerHTML = `<option value="">Todas as CJs</option>${typeOptions}`;
+  $("#report-type").innerHTML = `<option value="">Todos</option>${typeOptions}`;
   const situationOptions = [...new Set(state.data.gratificacoesTodas.map(row => row.situacao))].sort().map(value => `<option>${escapeHtml(value)}</option>`).join("");
-  $("#report-situation").insertAdjacentHTML("beforeend", situationOptions);
+  $("#report-situation").innerHTML = `<option value="">Todas</option>${situationOptions}`;
   const unitOptions = [...new Map(state.data.gratificacoesTodas.map(row => [row.unidade_sigla, row.unidade_nome])).entries()].sort(([a], [b]) => a.localeCompare(b, "pt-BR")).map(([sigla, nome]) => `<option value="${escapeHtml(sigla)}">${escapeHtml(sigla)} — ${escapeHtml(nome)}</option>`).join("");
-  $("#report-unit").insertAdjacentHTML("beforeend", unitOptions);
+  $("#report-unit").innerHTML = `<option value="">Todas</option>${unitOptions}`;
   $("#report-field-options").innerHTML = REPORT_FIELDS.map(field => `<label><input type="checkbox" value="${field.key}">${field.label}</label>`).join("");
-  $("#report-group").insertAdjacentHTML("beforeend", REPORT_FIELDS.filter(field => field.groupable).map(field => `<option value="${field.key}">${field.label}</option>`).join(""));
+  $("#report-group").innerHTML = `<option value="">Sem agrupamento</option>${REPORT_FIELDS.filter(field => field.groupable).map(field => `<option value="${field.key}">${field.label}</option>`).join("")}`;
   $("#report-order").innerHTML = REPORT_FIELDS.map(field => `<option value="${field.key}">${field.label}</option>`).join("");
-  applyReportConfig();
   $("#grant-form [name=tipo_id]").innerHTML = state.data.tipos.map(item => `<option value="${item.id}">${item.codigo}</option>`).join("");
+  const scenarioOptions = [...state.data.cenarios].sort((a,b) => String(b.competencia).localeCompare(String(a.competencia))).map(row => `<option value="${row.id}">${scenarioCompetence(row)} — ${SCENARIO_LABELS[row.status] || row.status}</option>`).join("");
+  $("#grant-scenario").innerHTML = scenarioOptions;
+  $("#report-scenario").innerHTML = scenarioOptions;
+  $("#report-compare-scenario").innerHTML = `<option value="">Sem comparação</option>${scenarioOptions}`;
+  $("#csjt-previous-scenario").innerHTML = scenarioOptions;
+  $("#csjt-current-scenario").innerHTML = scenarioOptions;
+  if (!state.data.cenarios.some(row => row.id === reportConfig.scenario)) reportConfig.scenario = currentScenario()?.id ?? "";
+  if (!state.data.cenarios.some(row => row.id === reportConfig.compareScenario)) reportConfig.compareScenario = "";
+  applyReportConfig();
 }
 
-function renderAll() { refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderReferences(); renderAudit(); renderProfiles(); renderOnlineUsers(); }
+function renderScenarioControls() {
+  const scenario = currentScenario();
+  $("#grant-scenario").value = scenario?.id ?? "";
+  $("#grant-scenario-status").textContent = `${SCENARIO_LABELS[scenario?.status] || scenario?.status || ""}${scenario?.dados_individualizados_completos === false ? " · dados incompletos" : ""}`;
+}
+
+function renderAll() { renderScenarioControls(); refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderReferences(); renderAudit(); renderProfiles(); renderOnlineUsers(); }
 
 function updateNewGrantVisibility(activeView) {
-  $("#new-grant").hidden = !(canWrite() && activeView === "gratificacoes");
+  $("#new-grant").hidden = !(canEditScenario() && activeView === "gratificacoes");
 }
 
 function openGrant(id = null) {
+  if (!canEditScenario()) return toast("Esta competência está disponível somente para leitura.", true);
   const form = $("#grant-form"); form.reset(); form.elements.id.value = "";
+  form.elements.lock_version.value = "0";
   form.dataset.scenarioId = currentScenario()?.id ?? "";
+  $("#grant-dialog-competence").textContent = `Competência ${scenarioCompetence()} — ${SCENARIO_LABELS[currentScenario()?.status]}`;
   if (id) {
-    const row = state.data.gratificacoes.find(item => item.id === id);
-    for (const name of ["id","tipo_id","servidor_nome","unidade_sigla","unidade_nome","situacao","observacoes"]) if (form.elements[name]) form.elements[name].value = row[name] ?? "";
+    const row = state.data.gratificacoesTodas.find(item => item.id === id);
+    for (const name of ["id","lock_version","tipo_id","servidor_nome","unidade_sigla","unidade_nome","situacao","observacoes"]) if (form.elements[name]) form.elements[name].value = row[name] ?? "";
     form.elements.com_vinculo.value = String(row.com_vinculo);
   }
   $("#grant-dialog").showModal();
 }
 
-async function reload() { state.data = await loadApplicationData(state.identity.profile.role); renderAll(); }
+async function reload() { state.data = await loadApplicationData(state.identity.profile.role); if (!state.data.cenarios.some(row => row.id === state.scenarioId)) state.scenarioId = vigenteScenario()?.id; populateOptions(); renderAll(); }
 
 function bindEvents() {
   $("#login-form").addEventListener("submit", async event => { event.preventDefault(); try { await signIn(event.target.email.value, event.target.password.value); await start(); } catch (error) { toast(error.message, true); } });
@@ -506,7 +612,7 @@ function bindEvents() {
     const source = state.data.cenarios.find(row => row.id === sourceId);
     if (!source) return toast("Selecione uma competência para copiar.", true);
     state.referenceScenarioId = null;
-    renderReferenceDraft({ rows: referenceRows(sourceId), competence: nextReferenceCompetence(), scenario: null, copy: true });
+    renderReferenceDraft({ rows: referenceRows(sourceId), competence: nextReferenceCompetence(), scenario: null, copy: true, sourceScenarioId: sourceId });
     $("#references-form").elements.orcamento_paradigma.value = moneyInput(source.orcamento_paradigma);
   });
   $("#references-table").addEventListener("input", event => {
@@ -542,8 +648,12 @@ function bindEvents() {
         orcamentoParadigma: moneyInput(form.elements.orcamento_paradigma.value),
         activate: form.elements.activate.checked,
         references,
+        sourceScenarioId: form.elements.source_cenario_id.value || null,
+        copyGrants: form.elements.copy_grants.checked,
+        dataComplete: form.elements.complete_data.checked,
       });
       state.referenceScenarioId = savedId;
+      state.scenarioId = savedId;
       await reload();
       toast("Referências financeiras salvas e cálculos atualizados.");
     } catch (error) {
@@ -551,9 +661,26 @@ function bindEvents() {
       toast(error.message, true);
     } finally { button.disabled = false; }
   });
+  const changeStatus = async (status, message) => {
+    const scenarioId = $("#references-form").elements.cenario_id.value;
+    if (!scenarioId || !confirm(message)) return;
+    try { await changeCompetenceStatus(scenarioId, status); await reload(); toast("Situação da competência atualizada."); }
+    catch (error) { toast(error.message, true); }
+  };
+  $("#close-competence").addEventListener("click", () => changeStatus("APROVADO", "Encerrar esta competência e bloquear novas alterações?"));
+  $("#archive-competence").addEventListener("click", () => changeStatus("ARQUIVADO", "Arquivar esta competência?"));
+  $("#reopen-competence").addEventListener("click", () => changeStatus("RASCUNHO", "Reabrir esta competência para edição? A operação será auditada."));
+  $("#grant-scenario").addEventListener("change", event => {
+    state.scenarioId = event.target.value;
+    renderAll();
+    const activeView = $(".active-view")?.id;
+    updateNewGrantVisibility(activeView);
+  });
+  $("#csjt-previous-scenario").addEventListener("change", event => { state.csjtPreviousScenarioId = event.target.value; renderCsjt(); });
+  $("#csjt-current-scenario").addEventListener("change", event => { state.csjtCurrentScenarioId = event.target.value; renderCsjt(); });
   $("#new-grant").addEventListener("click", () => openGrant());
   ["#search","#filter-type","#filter-link"].forEach(selector => $(selector).addEventListener("input", renderGrants));
-  ["#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));
+  ["#report-scenario","#report-compare-scenario","#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));
   ["#report-search","#report-title"].forEach(selector => $(selector).addEventListener("input", () => { readReportConfig(); renderReport(); }));
   $("#report-field-options").addEventListener("change", () => { readReportConfig(); renderReport(); });
   $("#reset-report").addEventListener("click", () => { reportConfig = { ...DEFAULT_REPORT_CONFIG, fields: [...DEFAULT_REPORT_CONFIG.fields] }; saveReportConfig(); applyReportConfig(); renderReport(); toast("Configuração do relatório restaurada."); });
@@ -573,7 +700,7 @@ function bindEvents() {
     } catch (error) { toast(error.message, true); }
     finally { event.currentTarget.disabled = false; }
   });
-  $("#grants-table").addEventListener("click", async event => { const edit = event.target.dataset.edit; const remove = event.target.dataset.delete; if (edit) openGrant(edit); if (remove && confirm("Inativar esta gratificação?")) { try { await inactivateGrant(remove); await reload(); toast("Gratificação inativada."); } catch (error) { toast(error.message, true); } } });
+  $("#grants-table").addEventListener("click", async event => { const edit = event.target.dataset.edit; const remove = event.target.dataset.delete; if (edit) openGrant(edit); if (remove && confirm("Inativar esta gratificação somente nesta competência?")) { try { await inactivateGrant(remove, event.target.dataset.version); await reload(); toast("Gratificação inativada nesta competência."); } catch (error) { toast(error.message, true); } } });
   $("#grant-form").addEventListener("submit", async event => { event.preventDefault(); const form = new FormData(event.target); const record = Object.fromEntries(form); record.com_vinculo = record.com_vinculo === "true"; record.cenario_id = event.target.dataset.scenarioId; try { await saveGrant(record); $("#grant-dialog").close(); await reload(); toast("Gratificação salva."); } catch (error) { toast(error.message, true); } });
   $("#profiles-table").addEventListener("click", async event => {
     const saveId = event.target.dataset.saveProfile;
@@ -611,7 +738,7 @@ function bindEvents() {
     } catch (error) { toast(error.message, true); }
     finally { button.disabled = false; }
   });
-  $("#export-csv").addEventListener("click", () => { readReportConfig(); const fields = selectedReportFields(); if (!fields.length) return toast("Selecione ao menos um campo.", true); const csv = [fields.map(field => field.label).join(";"), ...reportRows().map(row => fields.map(field => `"${String(reportValue(field, row) ?? "").replaceAll('"','""')}"`).join(";"))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); link.download = `relatorio-gratificacoes-${scenarioCompetence()}.csv`; link.click(); URL.revokeObjectURL(link.href); });
+  $("#export-csv").addEventListener("click", () => { readReportConfig(); const fields = selectedReportFields(); if (!fields.length) return toast("Selecione ao menos um campo.", true); const csv = [fields.map(field => field.label).join(";"), ...reportRows().map(row => fields.map(field => `"${String(reportValue(field, row) ?? "").replaceAll('"','""')}"`).join(";"))].join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" })); const scenario = state.data.cenarios.find(row => row.id === reportConfig.scenario) ?? currentScenario(); link.download = `relatorio-gratificacoes-${scenarioCompetence(scenario)}.csv`; link.click(); URL.revokeObjectURL(link.href); });
   $("#print-report").addEventListener("click", () => { document.body.classList.add("printing-report"); window.print(); setTimeout(() => document.body.classList.remove("printing-report"), 300); });
   $("#print-csjt").addEventListener("click", () => { document.body.classList.add("printing-csjt"); window.print(); setTimeout(() => document.body.classList.remove("printing-csjt"), 300); });
 }
@@ -621,6 +748,8 @@ async function start() {
   state.identity = await currentIdentity();
   if (!state.identity) return;
   state.data = await loadApplicationData(state.identity.profile.role);
+  state.scenarioId = vigenteScenario()?.id;
+  state.csjtCurrentScenarioId = state.scenarioId;
   $("#login-view").hidden = true; $("#app-view").hidden = false;
   $("#profile-name").textContent = state.identity.profile.nome || state.identity.profile.email;
   $("#profile-role").textContent = state.identity.profile.role;

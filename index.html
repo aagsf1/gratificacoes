@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>Gestão de Gratificações</title>
-  <link rel="stylesheet" href="./styles.css?v=20260831-references-v1">
+  <link rel="stylesheet" href="./styles.css?v=20260831-history-v1">
   <link rel="stylesheet" href="./reports.css?v=20260829-institutional-v1">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="./app.js?v=20260831-references-v1"></script>
+  <script type="module" src="./app.js?v=20260831-history-v1"></script>
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -76,7 +76,7 @@
         <div class="panel"><h2>Consolidação</h2><div class="table-wrap"><table id="summary-table"></table></div></div>
       </section>
       <section id="gratificacoes" class="view">
-        <div class="toolbar"><input id="search" type="search" placeholder="Pesquisar servidor, unidade ou sigla"><select id="filter-type"><option value="">Todas as CJs</option></select><select id="filter-link"><option value="">Todos os vínculos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></div>
+        <div class="toolbar"><label>Competência<select id="grant-scenario"></select></label><input id="search" type="search" placeholder="Pesquisar servidor, unidade ou sigla"><select id="filter-type"><option value="">Todas as CJs</option></select><select id="filter-link"><option value="">Todos os vínculos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select><span id="grant-scenario-status" class="reference-status"></span></div>
         <div class="panel table-wrap"><table id="grants-table"></table></div>
       </section>
       <section id="relatorios" class="view">
@@ -91,6 +91,8 @@
               <label class="full">Título do relatório<input id="report-title" value="Relatório customizado de gratificações"></label>
               <fieldset class="report-fields full"><legend>Campos exibidos</legend><div id="report-field-options"></div></fieldset>
               <label>Pesquisa textual<input id="report-search" type="search" placeholder="Servidor, unidade, sigla..."></label>
+              <label>Competência<select id="report-scenario"></select></label>
+              <label>Comparar com<select id="report-compare-scenario"><option value="">Sem comparação</option></select></label>
               <label>Tipo<select id="report-type"><option value="">Todos</option></select></label>
               <label>Vínculo<select id="report-link"><option value="">Todos</option><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></label>
               <label>Situação<select id="report-situation"><option value="">Todas</option></select></label>
@@ -105,11 +107,13 @@
           <div id="report-output" class="report-output">
             <div class="report-title"><div><h2 id="report-output-title"></h2><p id="report-generated"></p></div></div>
             <div id="report-metrics" class="cards report-metrics"></div>
+            <div id="report-comparison"></div>
             <div id="report-results"></div>
           </div>
         </div>
         <div id="csjt-report-view" hidden>
-          <div class="csjt-toolbar"><div><strong>Relatório Quadro CSJT</strong><span id="csjt-competence"></span></div><button id="print-csjt" class="secondary" type="button">Imprimir / PDF</button></div>
+          <div class="csjt-toolbar"><div><strong>Relatório Quadro CSJT</strong><span id="csjt-competence"></span></div><div class="csjt-scenario-selectors"><label>Situação anterior<select id="csjt-previous-scenario"></select></label><label>Situação atual<select id="csjt-current-scenario"></select></label></div><button id="print-csjt" class="secondary" type="button">Imprimir / PDF</button></div>
+          <p id="csjt-history-warning" class="warning" hidden></p>
           <div id="csjt-sheet" class="csjt-report" aria-label="Relatório Quadro CSJT"></div>
         </div>
       </section>
@@ -127,6 +131,7 @@
         </div>
         <form id="references-form">
           <input name="cenario_id" type="hidden">
+          <input name="source_cenario_id" type="hidden">
           <div class="references-grid">
             <div class="panel">
               <h2>Orçamento e competência</h2>
@@ -134,6 +139,8 @@
                 <label>Orçamento paradigma<input name="orcamento_paradigma" type="number" min="0" step="0.01" inputmode="decimal" required></label>
                 <label>Competência<input name="competencia" type="month" required></label>
                 <label class="reference-active"><input name="activate" type="checkbox"> Definir como competência vigente</label>
+                <label class="reference-active"><input name="complete_data" type="checkbox"> Dados individualizados completos para relatórios históricos</label>
+                <label id="copy-grants-field" class="reference-active" hidden><input name="copy_grants" type="checkbox"> Copiar também todas as gratificações</label>
                 <span id="reference-status" class="reference-status" aria-live="polite"></span>
               </div>
             </div>
@@ -145,7 +152,7 @@
           </div>
           <div class="panel">
             <div class="table-wrap"><table id="references-table"></table></div>
-            <div class="reference-save"><span id="reference-validation" role="alert"></span><button id="save-references" type="submit">Salvar referências</button></div>
+            <div class="reference-save"><span id="reference-validation" role="alert"></span><button id="reopen-competence" class="secondary" type="button" hidden>Reabrir</button><button id="close-competence" class="secondary" type="button" hidden>Encerrar</button><button id="archive-competence" class="secondary" type="button" hidden>Arquivar</button><button id="save-references" type="submit">Salvar referências</button></div>
           </div>
         </form>
       </section>
@@ -171,6 +178,6 @@
     </main>
   </div>
 
-  <dialog id="grant-dialog"><form id="grant-form" method="dialog"><h2>Gratificação</h2><input name="id" type="hidden"><label>Tipo<select name="tipo_id" required></select></label><label>Servidor<input name="servidor_nome"></label><label>Sigla da unidade<input name="unidade_sigla" required maxlength="30"></label><label>Nome da unidade<input name="unidade_nome" required></label><label>Vínculo<select name="com_vinculo"><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></label><label>Situação<select name="situacao"><option>ANTIGA</option><option>NOVA</option><option>ALTERADA</option><option>EXTINTA</option><option>FUTURO</option></select></label><label>Observações<textarea name="observacoes"></textarea></label><div class="dialog-actions"><button value="cancel" class="secondary">Cancelar</button><button id="save-grant" value="default">Salvar</button></div></form></dialog>
+  <dialog id="grant-dialog"><form id="grant-form" method="dialog"><h2>Gratificação</h2><p id="grant-dialog-competence" class="muted"></p><input name="id" type="hidden"><input name="lock_version" type="hidden"><label>Tipo<select name="tipo_id" required></select></label><label>Servidor<input name="servidor_nome"></label><label>Sigla da unidade<input name="unidade_sigla" required maxlength="30"></label><label>Nome da unidade<input name="unidade_nome" required></label><label>Vínculo<select name="com_vinculo"><option value="true">Com vínculo</option><option value="false">Sem vínculo</option></select></label><label>Situação<select name="situacao"><option>ANTIGA</option><option>NOVA</option><option>ALTERADA</option><option>EXTINTA</option><option>FUTURO</option></select></label><label>Observações<textarea name="observacoes"></textarea></label><div class="dialog-actions"><button value="cancel" class="secondary">Cancelar</button><button id="save-grant" value="default">Salvar</button></div></form></dialog>
 </body>
 </html>

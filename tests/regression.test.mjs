@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { INITIAL_DATA } from "../seed.js";
-import { fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjt } from "../calc.js";
+import { fromDecimal4, linkedValueFromPercent, summarize } from "../calc.js";
 
 const types = INITIAL_DATA.types.map(type => ({ ...type, id: type.codigo, percentual_com_vinculo: INITIAL_DATA.percentage }));
 const records = INITIAL_DATA.records.map(record => ({ ...record, tipo_id: record.tipo_codigo, ativo: true }));
@@ -23,15 +23,5 @@ assert.equal(fromDecimal4(byCode["CJ-04"].paid4).toFixed(4), "24456.8090");
 assert.equal(fromDecimal4(byCode["CJ-03"].paid4).toFixed(4), "457457.8185");
 assert.equal(fromDecimal4(byCode["CJ-02"].paid4).toFixed(4), "153926.9550");
 assert.equal(fromDecimal4(byCode["CJ-01"].paid4).toFixed(4), "185765.5000");
-const csjt = summarizeCsjt(records, types, INITIAL_DATA.budget);
-const previousByCode = Object.fromEntries(csjt.previous.rows.map(row => [row.codigo, row]));
-assert.deepEqual([previousByCode["CJ-04"].linked, previousByCode["CJ-04"].unlinked], [2, 0]);
-assert.deepEqual([previousByCode["CJ-03"].linked, previousByCode["CJ-03"].unlinked], [32, 4]);
-assert.deepEqual([previousByCode["CJ-02"].linked, previousByCode["CJ-02"].unlinked], [10, 3]);
-assert.deepEqual([previousByCode["CJ-01"].linked, previousByCode["CJ-01"].unlinked], [0, 0]);
-assert.deepEqual([csjt.previous.totals.count, csjt.previous.totals.linked, csjt.previous.totals.unlinked], [51, 44, 7]);
-assert.equal(fromDecimal4(csjt.previous.totals.paid4).toFixed(4), "577019.2780");
-assert.deepEqual([csjt.current.totals.count, csjt.current.totals.linked, csjt.current.totals.unlinked], [78, 66, 12]);
-assert.equal(fromDecimal4(csjt.current.totals.paid4).toFixed(4), "821607.0825");
 assert.ok(INITIAL_DATA.records.every(record => !record.servidor_nome || /^Servidor \d{3}$/.test(record.servidor_nome)), "A base pública deve conter apenas pseudônimos de servidores");
 console.log("Regressão validada: 78 registros e R$ 821.607,0825 pagos.");

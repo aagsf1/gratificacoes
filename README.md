@@ -12,9 +12,10 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 - RLS no PostgreSQL e trilha de auditoria protegida, com limpeza exclusiva do administrador;
 - cadastro e inativação de gratificações por `admin` e `gestor`;
 - página **Referências** para `admin` e `gestor`, com orçamento, competência, valores integrais, percentual padrão de 65%, valor com vínculo calculado ou personalizado e histórico auditável;
+- snapshots integrais das gratificações por competência, com identidade histórica estável, cópia transacional, bloqueio de competências encerradas e detecção de edição concorrente;
 - dashboard e filtros operacionais;
-- relatório customizável com título, seleção de campos, busca, filtros por CJ, situação, vínculo, status e unidade, agrupamento, ordenação, métricas, CSV e impressão;
-- Relatório Quadro CSJT com Situação Anterior e Situação Atual, quadros de orçamento, proporção e saldo, paleta verde/azul/amarela e impressão A4 paisagem;
+- relatório customizável por competência, com comparação histórica opcional, título, seleção de campos, busca, filtros por CJ, situação, vínculo, status e unidade, agrupamento, ordenação, métricas, CSV e impressão;
+- Relatório Quadro CSJT com seleção independente da Situação Anterior e Situação Atual, quadros de orçamento, proporção e saldo, paleta verde/azul/amarela e impressão A4 paisagem;
 - cálculos financeiros internos com quatro casas decimais e exibição padronizada em duas casas;
 - somente CJ-01, CJ-02, CJ-03 e CJ-04.
 
@@ -23,14 +24,23 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 1. Crie um projeto no Supabase.
 2. Execute `supabase-setup.sql` no SQL Editor.
 3. Execute `supabase-references-migration.sql` para criar as referências financeiras por competência e suas políticas RLS.
-4. Execute `supabase-seed.sql` para inserir e validar os 78 registros iniciais.
-5. Crie o primeiro usuário em **Authentication > Users**.
-6. Promova-o com o comando comentado ao final de `supabase-setup.sql`.
-7. Copie a URL do projeto e a chave **publishable/anon** para `app-config.js`.
-8. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
-9. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
-10. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
-11. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql` e `supabase-references-migration.sql`, nesta ordem.
+4. Execute `supabase-history-migration.sql` para habilitar snapshots integrais por competência.
+5. Execute `supabase-seed.sql` para inserir e validar os 78 registros iniciais.
+6. Crie o primeiro usuário em **Authentication > Users**.
+7. Promova-o com o comando comentado ao final de `supabase-setup.sql`.
+8. Copie a URL do projeto e a chave **publishable/anon** para `app-config.js`.
+9. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
+10. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
+11. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
+12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql` e `supabase-history-migration.sql`, nesta ordem.
+
+## Histórico por competência
+
+Na página **Referências**, use **Copiar selecionada** para abrir uma nova competência. A opção de copiar todas as gratificações cria um snapshot completo em uma única transação, preservando a identidade de cada gratificação entre os meses. Alterações posteriores atingem somente o snapshot selecionado.
+
+Uma competência pode ficar em rascunho, vigente, encerrada ou arquivada. Encerradas e arquivadas são somente leitura; apenas administradores podem reabri-las. O indicador **Dados individualizados completos** controla os avisos dos relatórios e evita que uma base parcial seja apresentada como reconstrução histórica integral.
+
+O sistema não inventa composições passadas. Para reconstruir uma competência antiga, copie a competência anterior mais próxima ou crie uma vazia, ajuste individualmente as gratificações e marque os dados como completos somente depois da conferência documental. O relatório customizável compara duas competências por identidade histórica; o Quadro CSJT usa exclusivamente os snapshots escolhidos.
 
 ## Cadastro de usuários pela aplicação
 
