@@ -1,5 +1,12 @@
 const SCALE = 10000n;
 
+export const CSJT_PREVIOUS_COUNTS = Object.freeze({
+  "CJ-04": Object.freeze({ linked: 2, unlinked: 0 }),
+  "CJ-03": Object.freeze({ linked: 32, unlinked: 4 }),
+  "CJ-02": Object.freeze({ linked: 10, unlinked: 3 }),
+  "CJ-01": Object.freeze({ linked: 0, unlinked: 0 }),
+});
+
 export function decimal4(value) {
   const normalized = String(value ?? 0).replace(",", ".");
   const [whole, fraction = ""] = normalized.split(".");
@@ -40,8 +47,16 @@ export function summarize(records, types, budget) {
 
 export function summarizeCsjt(records, types, budget) {
   const activeRecords = records.filter(item => item.ativo !== false);
+  const previousRecords = types.flatMap(type => {
+    const counts = CSJT_PREVIOUS_COUNTS[type.codigo] ?? { linked: 0, unlinked: 0 };
+    const tipoId = type.id ?? type.codigo;
+    return [
+      ...Array.from({ length: counts.linked }, () => ({ tipo_id: tipoId, com_vinculo: true, ativo: true })),
+      ...Array.from({ length: counts.unlinked }, () => ({ tipo_id: tipoId, com_vinculo: false, ativo: true })),
+    ];
+  });
   return {
-    previous: summarize(activeRecords.filter(item => item.situacao === "ANTIGA"), types, budget),
+    previous: summarize(previousRecords, types, budget),
     current: summarize(activeRecords, types, budget),
   };
 }

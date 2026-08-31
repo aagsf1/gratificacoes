@@ -194,7 +194,7 @@ function scenarioCompetence() {
 function renderCsjt() {
   const scenario = currentScenario();
   const summaries = summarizeCsjt(state.data.gratificacoesTodas, state.data.tipos, scenario?.orcamento_paradigma ?? 0);
-  $("#csjt-competence").textContent = `Competência ${scenarioCompetence()} · valores recalculados a partir dos registros ativos`;
+  $("#csjt-competence").textContent = `Competência ${scenarioCompetence()} · situação atual recalculada a partir dos registros ativos`;
   $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior", summaries.previous)}${csjtSection("Situação Atual", summaries.current, true)}`;
 }
 
