@@ -21,19 +21,22 @@ async function functionResponse(data, error) {
 
 export async function loadApplicationData(role) {
   const isAdmin = role === "admin";
-  const [gratificacoes, tipos, cenarios, auditoria, perfis] = await Promise.all([
+  const isWriter = ["admin", "gestor"].includes(role);
+  const [gratificacoes, tipos, cenarios, referencias, auditoria, perfis] = await Promise.all([
     db().from("gratificacoes_detalhadas").select("*").order("legacy_order", { ascending: true }),
     db().from("tipos_gratificacao").select("*").eq("ativo", true).order("codigo"),
     db().from("cenarios").select("*").order("competencia", { ascending: false }),
+    isWriter ? db().from("referencias_financeiras_detalhadas").select("*").order("codigo") : Promise.resolve({ data: [], error: null }),
     isAdmin ? db().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500) : Promise.resolve({ data: [], error: null }),
     isAdmin ? db().from("profiles").select("id,email,nome,role,ativo").order("nome") : Promise.resolve({ data: [], error: null }),
   ]);
-  for (const result of [gratificacoes, tipos, cenarios]) if (result.error) throw result.error;
+  for (const result of [gratificacoes, tipos, cenarios, referencias]) if (result.error) throw result.error;
   return {
     gratificacoes: gratificacoes.data.filter(item => item.ativo),
     gratificacoesTodas: gratificacoes.data,
     tipos: tipos.data,
     cenarios: cenarios.data,
+    referencias: referencias.data,
     auditoria: auditoria.error ? [] : auditoria.data,
     perfis: perfis.error ? [] : perfis.data,
   };
@@ -81,6 +84,18 @@ export async function deleteUser(userId) {
     body: { userId },
   });
   return functionResponse(data, error);
+}
+
+export async function saveFinancialReferences(payload) {
+  const { data, error } = await db().rpc("save_financial_references", {
+    p_cenario_id: payload.cenarioId || null,
+    p_competencia: `${payload.competencia}-01`,
+    p_orcamento_paradigma: payload.orcamentoParadigma,
+    p_activate: payload.activate,
+    p_references: payload.references,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function clearAuditLogs() {

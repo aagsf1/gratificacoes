@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { INITIAL_DATA } from "../seed.js";
-import { fromDecimal4, summarize, summarizeCsjt } from "../calc.js";
+import { fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjt } from "../calc.js";
 
 const types = INITIAL_DATA.types.map(type => ({ ...type, id: type.codigo, percentual_com_vinculo: INITIAL_DATA.percentage }));
 const records = INITIAL_DATA.records.map(record => ({ ...record, tipo_id: record.tipo_codigo, ativo: true }));
@@ -13,6 +13,7 @@ assert.equal(totals.unlinked, 12);
 assert.equal(fromDecimal4(totals.paid4).toFixed(4), "821607.0825");
 assert.equal(fromDecimal4(totals.budget4).toFixed(4), "828146.7700");
 assert.equal(fromDecimal4(totals.balance4).toFixed(4), "6539.6875");
+assert.equal(fromDecimal4(linkedValueFromPercent("11870.00", "65.00")).toFixed(4), "7715.5000");
 assert.deepEqual(Object.keys(byCode).sort(), ["CJ-01", "CJ-02", "CJ-03", "CJ-04"]);
 assert.deepEqual([byCode["CJ-04"].linked,byCode["CJ-04"].unlinked], [2,0]);
 assert.deepEqual([byCode["CJ-03"].linked,byCode["CJ-03"].unlinked], [33,6]);

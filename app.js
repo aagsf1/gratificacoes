@@ -1,10 +1,10 @@
 import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
-import { clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveGrant, updateProfile } from "./data-service.js?v=20260829-institutional-v1";
-import { decimal4, fromDecimal4, summarize, summarizeCsjt } from "./calc.js?v=20260829-admin";
+import { clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateProfile } from "./data-service.js?v=20260831-references-v1";
+import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjt } from "./calc.js?v=20260831-references-v1";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
-const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting" };
+const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", referenceScenarioId: null };
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const money = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -329,12 +329,89 @@ function renderOnlineUsers() {
   status.textContent = state.presenceStatus === "error"
     ? "Presença indisponível"
     : state.presenceStatus === "connecting" ? "Conectando…" : `${online.length} online`;
-  const viewNames = { dashboard: "Dashboard", gratificacoes: "Quadro de Gratificações", relatorios: "Relatórios", auditoria: "Auditoria", administracao: "Administração" };
+  const viewNames = { dashboard: "Dashboard", gratificacoes: "Quadro de Gratificações", relatorios: "Relatórios", referencias: "Referências", auditoria: "Auditoria", administracao: "Administração" };
   const rows = online.map(entry => {
     const profile = profiles.get(entry.userId);
     return `<tr><td><span class="online-dot" aria-label="Online"></span>${escapeHtml(profile.nome || "—")}</td><td>${escapeHtml(profile.email)}</td><td>${escapeHtml(profile.role)}</td><td>${escapeHtml(viewNames[entry.currentView] || entry.currentView)}</td><td>${dateTime(entry.onlineAt)}</td><td class="number">${entry.connections}</td></tr>`;
   }).join("");
   $("#online-users-table").innerHTML = `<thead><tr><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Seção atual</th><th>Desde</th><th class="number">Conexões</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty-state">Nenhum usuário online detectado.</td></tr>'}</tbody>`;
+}
+
+function referenceRows(scenarioId) {
+  const stored = state.data.referencias.filter(row => row.cenario_id === scenarioId);
+  if (stored.length) return stored.sort((a, b) => a.codigo.localeCompare(b.codigo));
+  return state.data.tipos.map(type => ({
+    codigo: type.codigo,
+    valor_integral: type.valor_integral,
+    percentual_com_vinculo: type.percentual_com_vinculo ?? "0.6500",
+    valor_com_vinculo: type.valor_com_vinculo_manual ?? type.valor_com_vinculo,
+    valor_personalizado: Boolean(type.valor_com_vinculo_manual),
+    ativo: type.ativo !== false,
+  }));
+}
+
+function linkedReferenceValue(integral, percentageValue) {
+  return fromDecimal4(linkedValueFromPercent(integral || 0, percentageValue || 0)).toFixed(2);
+}
+
+function percentageInput(value) { return (Number(value || 0) * 100).toFixed(2); }
+function moneyInput(value) { return Number(value || 0).toFixed(2); }
+function ratioInput(value) { return fromDecimal4(decimal4(value || 0) / 100n).toFixed(4); }
+
+function renderReferenceTable(rows) {
+  const body = rows.map(row => {
+    const custom = Boolean(row.valor_personalizado);
+    return `<tr data-reference-code="${row.codigo}" class="${custom ? "custom-reference-row" : ""}"><td><strong>${row.codigo}</strong></td><td><input data-reference-field="integral" type="number" min="0" step="0.01" value="${moneyInput(row.valor_integral)}" aria-label="Valor integral ${row.codigo}" required></td><td><input data-reference-field="percentage" type="number" min="0" max="100" step="0.01" value="${percentageInput(row.percentual_com_vinculo)}" aria-label="Percentual com vínculo ${row.codigo}" required></td><td><input data-reference-field="linked" type="number" min="0" step="0.01" value="${moneyInput(row.valor_com_vinculo)}" aria-label="Valor com vínculo ${row.codigo}" ${custom ? "" : "readonly"} required></td><td><label class="reference-custom"><input data-reference-field="custom" type="checkbox" ${custom ? "checked" : ""}> Valor personalizado</label></td><td>${row.ativo !== false ? "Ativo" : "Inativo"}</td></tr>`;
+  }).join("");
+  $("#references-table").innerHTML = `<thead><tr><th>Tipo</th><th class="number">Valor integral</th><th class="number">% com vínculo</th><th class="number">Valor com vínculo</th><th>Regra</th><th>Situação</th></tr></thead><tbody>${body}</tbody>`;
+}
+
+function renderReferenceDraft({ scenario = null, rows, competence = "", copy = false }) {
+  const form = $("#references-form");
+  form.elements.cenario_id.value = scenario?.id ?? "";
+  form.elements.orcamento_paradigma.value = moneyInput(scenario?.orcamento_paradigma ?? currentScenario()?.orcamento_paradigma ?? 0);
+  form.elements.competencia.value = competence || String(scenario?.competencia ?? "").slice(0, 7);
+  form.elements.activate.checked = scenario?.status === "VIGENTE";
+  $("#reference-status").textContent = scenario ? (scenario.status === "VIGENTE" ? "Competência vigente" : `Situação: ${scenario.status}`) : (copy ? "Nova competência — valores copiados" : "Nova competência — percentual padrão de 65,00%");
+  $("#reference-validation").textContent = "";
+  renderReferenceTable(rows);
+}
+
+function nextReferenceCompetence() {
+  const latest = state.data.cenarios.map(row => String(row.competencia).slice(0, 7)).sort().at(-1) || scenarioCompetence();
+  const [year, month] = latest.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function renderReferences() {
+  if (!canWrite()) return;
+  const select = $("#reference-scenario");
+  const scenarios = [...state.data.cenarios].sort((a, b) => String(b.competencia).localeCompare(String(a.competencia)));
+  select.innerHTML = scenarios.map(row => `<option value="${row.id}">${String(row.competencia).slice(0, 7)}${row.status === "VIGENTE" ? " — vigente" : ""}</option>`).join("");
+  const scenarioId = state.referenceScenarioId && scenarios.some(row => row.id === state.referenceScenarioId)
+    ? state.referenceScenarioId : (currentScenario()?.id ?? scenarios[0]?.id);
+  state.referenceScenarioId = scenarioId;
+  select.value = scenarioId ?? "";
+  const scenario = scenarios.find(row => row.id === scenarioId);
+  renderReferenceDraft({ scenario, rows: referenceRows(scenarioId) });
+}
+
+function collectReferences() {
+  return [...$("#references-table").querySelectorAll("tbody tr")].map(row => {
+    const integral = row.querySelector('[data-reference-field="integral"]').value;
+    const percentageValue = row.querySelector('[data-reference-field="percentage"]').value;
+    const linked = row.querySelector('[data-reference-field="linked"]').value;
+    const custom = row.querySelector('[data-reference-field="custom"]').checked;
+    return {
+      codigo: row.dataset.referenceCode,
+      valor_integral: moneyInput(integral),
+      percentual_com_vinculo: ratioInput(percentageValue),
+      valor_com_vinculo: custom ? moneyInput(linked) : linkedReferenceValue(integral, percentageValue),
+      valor_personalizado: custom,
+      ativo: true,
+    };
+  });
 }
 
 function populateOptions() {
@@ -352,7 +429,7 @@ function populateOptions() {
   $("#grant-form [name=tipo_id]").innerHTML = state.data.tipos.map(item => `<option value="${item.id}">${item.codigo}</option>`).join("");
 }
 
-function renderAll() { refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderAudit(); renderProfiles(); renderOnlineUsers(); }
+function renderAll() { refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderReferences(); renderAudit(); renderProfiles(); renderOnlineUsers(); }
 
 function updateNewGrantVisibility(activeView) {
   $("#new-grant").hidden = !(canWrite() && activeView === "gratificacoes");
@@ -407,6 +484,73 @@ function bindEvents() {
   });
   $("#logout").addEventListener("click", async () => { await stopPresence(); await signOut(); location.reload(); });
   $$('nav button[data-view]').forEach(button => button.addEventListener("click", () => { $$('nav button').forEach(item => item.classList.remove("active")); button.classList.add("active"); $$(".view").forEach(view => view.classList.remove("active-view")); $(`#${button.dataset.view}`).classList.add("active-view"); $("#page-title").textContent = button.textContent; const directCsjt = button.dataset.reportView === "csjt"; $("#report-switcher").hidden = directCsjt; if (button.dataset.view === "relatorios") setReportView(directCsjt ? "csjt" : "custom"); updateNewGrantVisibility(button.dataset.view); void updatePresence(button.dataset.view); }));
+  $("#reference-scenario").addEventListener("change", event => {
+    state.referenceScenarioId = event.target.value;
+    const scenario = state.data.cenarios.find(row => row.id === state.referenceScenarioId);
+    renderReferenceDraft({ scenario, rows: referenceRows(state.referenceScenarioId) });
+  });
+  $("#new-reference").addEventListener("click", () => {
+    const rows = state.data.tipos.map(type => ({
+      codigo: type.codigo,
+      valor_integral: type.valor_integral,
+      percentual_com_vinculo: "0.6500",
+      valor_com_vinculo: linkedReferenceValue(type.valor_integral, "65.00"),
+      valor_personalizado: false,
+      ativo: true,
+    }));
+    state.referenceScenarioId = null;
+    renderReferenceDraft({ rows, competence: nextReferenceCompetence() });
+  });
+  $("#copy-reference").addEventListener("click", () => {
+    const sourceId = $("#reference-scenario").value;
+    const source = state.data.cenarios.find(row => row.id === sourceId);
+    if (!source) return toast("Selecione uma competência para copiar.", true);
+    state.referenceScenarioId = null;
+    renderReferenceDraft({ rows: referenceRows(sourceId), competence: nextReferenceCompetence(), scenario: null, copy: true });
+    $("#references-form").elements.orcamento_paradigma.value = moneyInput(source.orcamento_paradigma);
+  });
+  $("#references-table").addEventListener("input", event => {
+    const row = event.target.closest("tr[data-reference-code]");
+    if (!row) return;
+    const custom = row.querySelector('[data-reference-field="custom"]');
+    const linked = row.querySelector('[data-reference-field="linked"]');
+    if (event.target === custom) {
+      linked.readOnly = !custom.checked;
+      row.classList.toggle("custom-reference-row", custom.checked);
+    }
+    if (!custom.checked) {
+      const integral = row.querySelector('[data-reference-field="integral"]').value;
+      const percentageValue = row.querySelector('[data-reference-field="percentage"]').value;
+      linked.value = linkedReferenceValue(integral, percentageValue);
+    }
+  });
+  $("#references-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const scenarioId = form.elements.cenario_id.value || null;
+    if (scenarioId && !confirm("Salvar novos parâmetros para esta competência? Os valores anteriores permanecerão registrados na Auditoria.")) return;
+    const references = collectReferences();
+    const invalid = references.some(row => Number(row.valor_integral) < 0 || Number(row.valor_com_vinculo) < 0 || Number(row.percentual_com_vinculo) < 0 || Number(row.percentual_com_vinculo) > 1);
+    if (invalid) return toast("Revise os valores monetários e percentuais informados.", true);
+    const button = event.submitter;
+    button.disabled = true;
+    $("#reference-validation").textContent = "Salvando…";
+    try {
+      const savedId = await saveFinancialReferences({
+        cenarioId: scenarioId,
+        competencia: form.elements.competencia.value,
+        orcamentoParadigma: moneyInput(form.elements.orcamento_paradigma.value),
+        activate: form.elements.activate.checked,
+        references,
+      });
+      state.referenceScenarioId = savedId;
+      await reload();
+      toast("Referências financeiras salvas e cálculos atualizados.");
+    } catch (error) {
+      $("#reference-validation").textContent = "Não foi possível salvar.";
+      toast(error.message, true);
+    } finally { button.disabled = false; }
+  });
   $("#new-grant").addEventListener("click", () => openGrant());
   ["#search","#filter-type","#filter-link"].forEach(selector => $(selector).addEventListener("input", renderGrants));
   ["#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));

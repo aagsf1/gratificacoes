@@ -1,4 +1,5 @@
 -- Execute uma única vez no SQL Editor de um projeto Supabase novo.
+-- Em seguida, execute supabase-references-migration.sql para habilitar as referências por competência.
 -- Este script usa somente auth.uid(); nenhuma chave secreta é necessária.
 create extension if not exists pgcrypto;
 

@@ -14,6 +14,9 @@ export function decimal4(value) {
 }
 
 export function fromDecimal4(value) { return Number(value) / Number(SCALE); }
+export function linkedValueFromPercent(integral, percentage) {
+  return decimal4(integral) * decimal4(percentage) / (100n * SCALE);
+}
 export function paidValue(integral, linked, percentage = "0.6500") {
   const amount = decimal4(integral);
   return linked ? amount * decimal4(percentage) / SCALE : amount;
