@@ -64,6 +64,8 @@ assert.match(calc, /summarizeCsjtPrevious\(types, budget\)[\s\S]*linkedAmount4\(
 assert.match(await readFile(resolve(root, "reports.css"), "utf8"), /\.csjt-bottom[\s\S]*\.info-value[\s\S]*body\.printing-csjt/, "O Quadro CSJT deve manter os quadros inferiores e a impressão da referência");
 assert.match(app, /updateNewGrantVisibility\(button\.dataset\.view\)/, "Nova gratificação deve acompanhar a seção ativa");
 assert.match(app, /activeView === "gratificacoes"/, "Nova gratificação deve aparecer somente em Gratificações");
+assert.match(app, /#summary-table[\s\S]*<tfoot>[\s\S]*Total pago[\s\S]*state\.summary\.totals\.paid4/, "A consolidação deve mostrar o total pago no rodapé da coluna financeira");
+assert.match(await readFile(resolve(root, "styles.css"), "utf8"), /#summary-table tbody td[\s\S]*font-weight:750/, "Todos os valores da consolidação devem ser exibidos em negrito");
 assert.match(app, /report-switcher"\)\.hidden = directCsjt/, "A página direta do Quadro CSJT não deve mostrar o seletor de relatórios");
 assert.doesNotMatch(app, /money\([^\n]*,\s*4\)|maximumFractionDigits:\s*4/, "Valores e percentuais exibidos devem usar duas casas");
 assert.match(app, /minimumFractionDigits:\s*2, maximumFractionDigits:\s*2/, "A formatação deve fixar exatamente duas casas");
