@@ -56,11 +56,16 @@ grant execute on function public.can_edit_scenario(uuid) to authenticated;
 
 drop policy if exists gratificacoes_insert on public.gratificacoes;
 drop policy if exists gratificacoes_update on public.gratificacoes;
+drop policy if exists gratificacoes_delete on public.gratificacoes;
 create policy gratificacoes_insert on public.gratificacoes for insert to authenticated
   with check (public.can_edit_scenario(cenario_id));
 create policy gratificacoes_update on public.gratificacoes for update to authenticated
   using (public.can_edit_scenario(cenario_id))
   with check (public.can_edit_scenario(cenario_id));
+create policy gratificacoes_delete on public.gratificacoes for delete to authenticated
+  using (public.can_edit_scenario(cenario_id));
+
+grant delete on public.gratificacoes to authenticated;
 
 drop view if exists public.gratificacoes_detalhadas;
 create view public.gratificacoes_detalhadas

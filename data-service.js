@@ -84,6 +84,13 @@ export async function updateUser(user) {
   return functionResponse(data, error);
 }
 
+export async function deleteGrant(id, lockVersion) {
+  const { data, error } = await db().from("gratificacoes").delete()
+    .eq("id", id).eq("lock_version", Number(lockVersion)).select("id").maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Esta gratificação foi alterada por outra sessão. Recarregue os dados e tente novamente.");
+}
+
 export async function inviteUser(nome, email, role) {
   const { data, error } = await db().functions.invoke("invite-user", {
     body: { nome: nome.trim(), email: email.trim().toLowerCase(), role },

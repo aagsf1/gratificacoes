@@ -32,7 +32,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 9. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
 10. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
 11. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
-12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql` e `supabase-user-profile-migration.sql`, nesta ordem.
+12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql`, `supabase-grant-delete-migration.sql` e `supabase-user-profile-migration.sql`, nesta ordem.
 
 ## Histórico por competência
 

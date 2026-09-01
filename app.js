@@ -1,6 +1,6 @@
 import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
-import { changeCompetenceStatus, clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateUser } from "./data-service.js?v=20260901-update-user-v1";
+import { changeCompetenceStatus, clearAuditLogs, deleteGrant, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateUser } from "./data-service.js?v=20260901-grant-delete-v1";
 import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjtPrevious } from "./calc.js?v=20260831-csjt-fixed-v1";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
@@ -177,7 +177,7 @@ function filteredGrants() {
 
 function renderGrants() {
   const rows = filteredGrants();
-  $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canEditScenario() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago))}</td>${canEditScenario() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}" data-version="${row.lock_version}">Inativar</button></td>` : ""}</tr>`).join("")}</tbody>`;
+  $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canEditScenario() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago))}</td>${canEditScenario() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}" data-version="${row.lock_version}">Inativar</button><button class="danger" data-remove-grant="${row.id}" data-version="${row.lock_version}">Excluir</button></td>` : ""}</tr>`).join("")}</tbody>`;
 }
 
 function csjtValues(summary, types) {
@@ -707,7 +707,23 @@ function bindEvents() {
     } catch (error) { toast(error.message, true); }
     finally { event.currentTarget.disabled = false; }
   });
-  $("#grants-table").addEventListener("click", async event => { const edit = event.target.dataset.edit; const remove = event.target.dataset.delete; if (edit) openGrant(edit); if (remove && confirm("Inativar esta gratificação somente nesta competência?")) { try { await inactivateGrant(remove, event.target.dataset.version); await reload(); toast("Gratificação inativada nesta competência."); } catch (error) { toast(error.message, true); } } });
+  $("#grants-table").addEventListener("click", async event => {
+    const edit = event.target.dataset.edit;
+    const inactivate = event.target.dataset.delete;
+    const remove = event.target.dataset.removeGrant;
+    if (edit) return openGrant(edit);
+    if (inactivate && confirm("Inativar esta gratificação somente nesta competência?")) {
+      try { await inactivateGrant(inactivate, event.target.dataset.version); await reload(); toast("Gratificação inativada nesta competência."); }
+      catch (error) { toast(error.message, true); }
+      return;
+    }
+    if (remove && confirm("Excluir definitivamente esta gratificação desta competência? Esta ação não pode ser desfeita.")) {
+      event.target.disabled = true;
+      try { await deleteGrant(remove, event.target.dataset.version); await reload(); toast("Gratificação excluída definitivamente."); }
+      catch (error) { toast(error.message, true); }
+      finally { if (event.target.isConnected) event.target.disabled = false; }
+    }
+  });
   $("#grant-form").addEventListener("submit", async event => { event.preventDefault(); const form = new FormData(event.target); const record = Object.fromEntries(form); record.com_vinculo = record.com_vinculo === "true"; record.cenario_id = event.target.dataset.scenarioId; try { await saveGrant(record); $("#grant-dialog").close(); await reload(); toast("Gratificação salva."); } catch (error) { toast(error.message, true); } });
   $("#profiles-table").addEventListener("click", async event => {
     const saveId = event.target.dataset.saveProfile;
