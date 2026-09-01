@@ -62,6 +62,9 @@ assert.match(html, /id="csjt-report-view"[\s\S]*id="csjt-sheet"/, "O Quadro CSJT
 assert.doesNotMatch(html, /SIMULAÇÕES|Incremento efetivos/i, "O Quadro CSJT não deve reproduzir a simulação da página de referência");
 assert.match(app, /summarizeCsjtPrevious\(previousTypes[\s\S]*summarize\(grantsForScenario\(current\?\.id\)/, "O Quadro CSJT deve manter a base anterior fixa e calcular a atual pelo snapshot");
 assert.match(app, /csjtSection\("Situação Anterior \(30\/06\/2022\)"/, "O título histórico deve permanecer imutável");
+assert.match(app, /Situação Posterior \(\$\{scenarioCompetence\(current\)\}\)/, "O Quadro CSJT deve denominar a segunda tabela como Situação Posterior");
+assert.doesNotMatch(app, /Situação Atual \(\$\{scenarioCompetence\(current\)\}\)/, "O Quadro CSJT não deve manter o título Situação Atual");
+assert.match(app, /match\(\/\^\(\\d\{4\}\)-\(\\d\{2\}\)\/[\s\S]*\$\{match\[2\]\}\/\$\{match\[1\]\}/, "Competências devem ser exibidas no formato mês/ano sem alterar o valor técnico");
 const calc = await readFile(resolve(root, "calc.js"), "utf8");
 assert.match(calc, /CSJT_PREVIOUS_COUNTS[\s\S]*"CJ-04", linked: 2, unlinked: 0[\s\S]*"CJ-03", linked: 32, unlinked: 4[\s\S]*"CJ-02", linked: 10, unlinked: 3[\s\S]*"CJ-01", linked: 0, unlinked: 0/, "As quantidades institucionais de 30/06/2022 devem permanecer fixas");
 assert.match(calc, /summarizeCsjtPrevious\(types, budget\)[\s\S]*linkedAmount4\(type\)[\s\S]*decimal4\(type\.valor_integral\)/, "Os valores históricos devem ser recalculados pela competência financeira escolhida");

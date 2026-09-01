@@ -23,7 +23,7 @@ const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "
 const canWrite = () => ["admin", "gestor"].includes(state.identity?.profile.role);
 const REPORT_FIELDS = [
   { key: "id", label: "ID" },
-  { key: "competencia", label: "Competência", groupable: true, format: row => String(row.competencia || "").slice(0, 7) },
+  { key: "competencia", label: "Competência", groupable: true, format: row => scenarioCompetence(row) },
   { key: "lineage_id", label: "Identidade histórica" },
   { key: "tipo_codigo", label: "Gratificação", groupable: true },
   { key: "unidade_nome", label: "Unidade", groupable: true },
@@ -221,7 +221,8 @@ function csjtSection(title, summary, types, current = false) {
 
 function scenarioCompetence(scenario = currentScenario()) {
   const value = scenario?.competencia;
-  return value ? String(value).slice(0, 7) : "não informada";
+  const match = String(value || "").match(/^(\d{4})-(\d{2})/);
+  return match ? `${match[2]}/${match[1]}` : "não informada";
 }
 
 function renderCsjt() {
@@ -235,7 +236,7 @@ function renderCsjt() {
   warning.hidden = true;
   warning.textContent = "";
   $("#csjt-competence").textContent = `Valores calculados pela competência ${scenarioCompetence(current)}`;
-  $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior (30/06/2022)", previousSummary, previousTypes)}${csjtSection(`Situação Atual (${scenarioCompetence(current)})`, currentSummary, currentTypes, true)}`;
+  $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior (30/06/2022)", previousSummary, previousTypes)}${csjtSection(`Situação Posterior (${scenarioCompetence(current)})`, currentSummary, currentTypes, true)}`;
 }
 
 function saveReportConfig() { try { localStorage.setItem(REPORT_STORAGE, JSON.stringify(reportConfig)); } catch { /* Preferências locais são opcionais. */ } }
@@ -505,7 +506,7 @@ function renderReferences() {
   if (!canWrite()) return;
   const select = $("#reference-scenario");
   const scenarios = [...state.data.cenarios].sort((a, b) => String(b.competencia).localeCompare(String(a.competencia)));
-  select.innerHTML = scenarios.map(row => `<option value="${row.id}">${String(row.competencia).slice(0, 7)}${row.status === "VIGENTE" ? " — vigente" : ""}</option>`).join("");
+  select.innerHTML = scenarios.map(row => `<option value="${row.id}">${scenarioCompetence(row)}${row.status === "VIGENTE" ? " — vigente" : ""}</option>`).join("");
   const scenarioId = state.referenceScenarioId && scenarios.some(row => row.id === state.referenceScenarioId)
     ? state.referenceScenarioId : (currentScenario()?.id ?? scenarios[0]?.id);
   state.referenceScenarioId = scenarioId;
