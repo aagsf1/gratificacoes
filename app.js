@@ -1,7 +1,7 @@
 import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
 import { changeCompetenceStatus, clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateProfile } from "./data-service.js?v=20260831-history-v1";
-import { decimal4, fromDecimal4, linkedValueFromPercent, summarize } from "./calc.js?v=20260831-history-v1";
+import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjtPrevious } from "./calc.js?v=20260831-csjt-fixed-v1";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
 const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null, csjtPreviousScenarioId: null, csjtCurrentScenarioId: null };
@@ -209,9 +209,7 @@ function scenarioCompetence(scenario = currentScenario()) {
 
 function renderCsjt() {
   const scenarios = state.data.cenarios;
-  const previous = scenarios.find(row => row.id === state.csjtPreviousScenarioId)
-    ?? scenarios.find(row => String(row.competencia).slice(0, 7) === "2022-06")
-    ?? [...scenarios].sort((a, b) => String(a.competencia).localeCompare(String(b.competencia)))[0];
+  const previous = scenarios.find(row => row.id === state.csjtPreviousScenarioId) ?? currentScenario();
   const current = scenarios.find(row => row.id === state.csjtCurrentScenarioId) ?? currentScenario();
   state.csjtPreviousScenarioId = previous?.id ?? null;
   state.csjtCurrentScenarioId = current?.id ?? null;
@@ -219,18 +217,13 @@ function renderCsjt() {
   $("#csjt-current-scenario").value = current?.id ?? "";
   const previousTypes = scenarioTypes(previous?.id);
   const currentTypes = scenarioTypes(current?.id);
-  const previousSummary = summarize(grantsForScenario(previous?.id), previousTypes, previous?.orcamento_paradigma ?? 0);
+  const previousSummary = summarizeCsjtPrevious(previousTypes, previous?.orcamento_paradigma ?? 0);
   const currentSummary = summarize(grantsForScenario(current?.id), currentTypes, current?.orcamento_paradigma ?? 0);
-  const expectedHistorical = String(previous?.competencia).slice(0, 7) === "2022-06";
   const warning = $("#csjt-history-warning");
-  warning.hidden = Boolean(previous && previous.dados_individualizados_completos && (!expectedHistorical || previousSummary.totals.count === 51));
-  warning.textContent = !previous ? "Nenhuma competência histórica foi cadastrada."
-    : !previous.dados_individualizados_completos ? `A competência ${scenarioCompetence(previous)} possui dados individualizados incompletos.`
-    : expectedHistorical && previousSummary.totals.count !== 51 ? "A competência 2022-06 ainda não contém os 51 registros individualizados esperados; nenhum dado foi inventado."
-    : "";
-  $("#csjt-competence").textContent = `Comparação ${scenarioCompetence(previous)} × ${scenarioCompetence(current)}`;
-  const previousTitle = expectedHistorical ? "Situação Anterior (30/06/2022)" : `Situação Anterior (${scenarioCompetence(previous)})`;
-  $("#csjt-sheet").innerHTML = `${csjtSection(previousTitle, previousSummary, previousTypes)}${csjtSection(`Situação Atual (${scenarioCompetence(current)})`, currentSummary, currentTypes, true)}`;
+  warning.hidden = true;
+  warning.textContent = "";
+  $("#csjt-competence").textContent = `Valores anteriores pela competência ${scenarioCompetence(previous)} · situação atual ${scenarioCompetence(current)}`;
+  $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior (30/06/2022)", previousSummary, previousTypes)}${csjtSection(`Situação Atual (${scenarioCompetence(current)})`, currentSummary, currentTypes, true)}`;
 }
 
 function saveReportConfig() { try { localStorage.setItem(REPORT_STORAGE, JSON.stringify(reportConfig)); } catch { /* Preferências locais são opcionais. */ } }

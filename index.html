@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="./reports.css?v=20260829-institutional-v1">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="./app.js?v=20260831-history-v1"></script>
+  <script type="module" src="./app.js?v=20260831-csjt-fixed-v1"></script>
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -112,7 +112,7 @@
           </div>
         </div>
         <div id="csjt-report-view" hidden>
-          <div class="csjt-toolbar"><div><strong>Relatório Quadro CSJT</strong><span id="csjt-competence"></span></div><div class="csjt-scenario-selectors"><label>Situação anterior<select id="csjt-previous-scenario"></select></label><label>Situação atual<select id="csjt-current-scenario"></select></label></div><button id="print-csjt" class="secondary" type="button">Imprimir / PDF</button></div>
+          <div class="csjt-toolbar"><div><strong>Relatório Quadro CSJT</strong><span id="csjt-competence"></span></div><div class="csjt-scenario-selectors"><label>Competência dos valores anteriores<select id="csjt-previous-scenario"></select></label><label>Competência da situação atual<select id="csjt-current-scenario"></select></label></div><button id="print-csjt" class="secondary" type="button">Imprimir / PDF</button></div>
           <p id="csjt-history-warning" class="warning" hidden></p>
           <div id="csjt-sheet" class="csjt-report" aria-label="Relatório Quadro CSJT"></div>
         </div>

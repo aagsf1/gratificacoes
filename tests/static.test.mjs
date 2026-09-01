@@ -50,9 +50,11 @@ assert.match(html, /id="show-custom-report"[\s\S]*id="show-csjt-report"/, "Relat
 assert.match(html, /id="report-title"[\s\S]*id="report-group"[\s\S]*id="report-order"[\s\S]*id="report-direction"/, "O relatório deve permitir título, agrupamento e ordenação");
 assert.match(html, /id="csjt-report-view"[\s\S]*id="csjt-sheet"/, "O Quadro CSJT deve existir como relatório próprio");
 assert.doesNotMatch(html, /SIMULAÇÕES|Incremento efetivos/i, "O Quadro CSJT não deve reproduzir a simulação da página de referência");
-assert.match(app, /grantsForScenario\(previous\?\.id\)[\s\S]*grantsForScenario\(current\?\.id\)/, "O Quadro CSJT deve usar snapshots das duas competências");
-assert.match(app, /dados_individualizados_completos[\s\S]*nenhum dado foi inventado/i, "O CSJT deve avisar quando a composição histórica estiver incompleta");
-assert.doesNotMatch(await readFile(resolve(root, "calc.js"), "utf8"), /CSJT_PREVIOUS_COUNTS|"CJ-03"[^\n]*linked:\s*32/, "Quantidades históricas não podem permanecer fixadas no JavaScript");
+assert.match(app, /summarizeCsjtPrevious\(previousTypes[\s\S]*summarize\(grantsForScenario\(current\?\.id\)/, "O Quadro CSJT deve manter a base anterior fixa e calcular a atual pelo snapshot");
+assert.match(app, /csjtSection\("Situação Anterior \(30\/06\/2022\)"/, "O título histórico deve permanecer imutável");
+const calc = await readFile(resolve(root, "calc.js"), "utf8");
+assert.match(calc, /CSJT_PREVIOUS_COUNTS[\s\S]*"CJ-04", linked: 2, unlinked: 0[\s\S]*"CJ-03", linked: 32, unlinked: 4[\s\S]*"CJ-02", linked: 10, unlinked: 3[\s\S]*"CJ-01", linked: 0, unlinked: 0/, "As quantidades institucionais de 30/06/2022 devem permanecer fixas");
+assert.match(calc, /summarizeCsjtPrevious\(types, budget\)[\s\S]*linkedAmount4\(type\)[\s\S]*decimal4\(type\.valor_integral\)/, "Os valores históricos devem ser recalculados pela competência financeira escolhida");
 assert.match(await readFile(resolve(root, "reports.css"), "utf8"), /\.csjt-bottom[\s\S]*\.info-value[\s\S]*body\.printing-csjt/, "O Quadro CSJT deve manter os quadros inferiores e a impressão da referência");
 assert.match(app, /updateNewGrantVisibility\(button\.dataset\.view\)/, "Nova gratificação deve acompanhar a seção ativa");
 assert.match(app, /activeView === "gratificacoes"/, "Nova gratificação deve aparecer somente em Gratificações");

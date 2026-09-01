@@ -15,7 +15,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 - snapshots integrais das gratificações por competência, com identidade histórica estável, cópia transacional, bloqueio de competências encerradas e detecção de edição concorrente;
 - dashboard e filtros operacionais;
 - relatório customizável por competência, com comparação histórica opcional, título, seleção de campos, busca, filtros por CJ, situação, vínculo, status e unidade, agrupamento, ordenação, métricas, CSV e impressão;
-- Relatório Quadro CSJT com seleção independente da Situação Anterior e Situação Atual, quadros de orçamento, proporção e saldo, paleta verde/azul/amarela e impressão A4 paisagem;
+- Relatório Quadro CSJT com a composição institucional imutável de 30/06/2022 na Situação Anterior, competência financeira selecionável, Situação Atual por snapshot, quadros de orçamento, proporção e saldo, paleta verde/azul/amarela e impressão A4 paisagem;
 - cálculos financeiros internos com quatro casas decimais e exibição padronizada em duas casas;
 - somente CJ-01, CJ-02, CJ-03 e CJ-04.
 
@@ -40,7 +40,9 @@ Na página **Referências**, use **Copiar selecionada** para abrir uma nova comp
 
 Uma competência pode ficar em rascunho, vigente, encerrada ou arquivada. Encerradas e arquivadas são somente leitura; apenas administradores podem reabri-las. O indicador **Dados individualizados completos** controla os avisos dos relatórios e evita que uma base parcial seja apresentada como reconstrução histórica integral.
 
-O sistema não inventa composições passadas. Para reconstruir uma competência antiga, copie a competência anterior mais próxima ou crie uma vazia, ajuste individualmente as gratificações e marque os dados como completos somente depois da conferência documental. O relatório customizável compara duas competências por identidade histórica; o Quadro CSJT usa exclusivamente os snapshots escolhidos.
+O sistema não inventa composições passadas. Para reconstruir uma competência antiga, copie a competência anterior mais próxima ou crie uma vazia, ajuste individualmente as gratificações e marque os dados como completos somente depois da conferência documental. O relatório customizável compara duas competências por identidade histórica.
+
+No Quadro CSJT, a **Situação Anterior (30/06/2022)** é uma referência institucional fixa: CJ-04 com 2 efetivos e 0 sem vínculo; CJ-03 com 32 efetivos e 4 sem vínculo; CJ-02 com 10 efetivos e 3 sem vínculo; e CJ-01 com 0 em ambos os grupos. O seletor dessa tabela altera somente os parâmetros financeiros usados para recalcular seus valores em reais. A Situação Atual continua sendo calculada a partir do snapshot individualizado da competência selecionada.
 
 ## Cadastro de usuários pela aplicação
 
