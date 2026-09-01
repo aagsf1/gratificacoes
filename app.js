@@ -4,7 +4,7 @@ import { changeCompetenceStatus, clearAuditLogs, deleteUser, inactivateGrant, in
 import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjtPrevious } from "./calc.js?v=20260831-csjt-fixed-v1";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
-const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null, csjtPreviousScenarioId: null, csjtCurrentScenarioId: null };
+const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null };
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const money = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -208,13 +208,8 @@ function scenarioCompetence(scenario = currentScenario()) {
 }
 
 function renderCsjt() {
-  const scenarios = state.data.cenarios;
-  const previous = scenarios.find(row => row.id === state.csjtPreviousScenarioId) ?? currentScenario();
-  const current = scenarios.find(row => row.id === state.csjtCurrentScenarioId) ?? currentScenario();
-  state.csjtPreviousScenarioId = previous?.id ?? null;
-  state.csjtCurrentScenarioId = current?.id ?? null;
-  $("#csjt-previous-scenario").value = previous?.id ?? "";
-  $("#csjt-current-scenario").value = current?.id ?? "";
+  const current = currentScenario();
+  const previous = current;
   const previousTypes = scenarioTypes(previous?.id);
   const currentTypes = scenarioTypes(current?.id);
   const previousSummary = summarizeCsjtPrevious(previousTypes, previous?.orcamento_paradigma ?? 0);
@@ -222,7 +217,7 @@ function renderCsjt() {
   const warning = $("#csjt-history-warning");
   warning.hidden = true;
   warning.textContent = "";
-  $("#csjt-competence").textContent = `Valores anteriores pela competência ${scenarioCompetence(previous)} · situação atual ${scenarioCompetence(current)}`;
+  $("#csjt-competence").textContent = `Valores calculados pela competência ${scenarioCompetence(current)}`;
   $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior (30/06/2022)", previousSummary, previousTypes)}${csjtSection(`Situação Atual (${scenarioCompetence(current)})`, currentSummary, currentTypes, true)}`;
 }
 
@@ -535,8 +530,6 @@ function populateOptions() {
   $("#grant-scenario").innerHTML = scenarioOptions;
   $("#report-scenario").innerHTML = scenarioOptions;
   $("#report-compare-scenario").innerHTML = `<option value="">Sem comparação</option>${scenarioOptions}`;
-  $("#csjt-previous-scenario").innerHTML = scenarioOptions;
-  $("#csjt-current-scenario").innerHTML = scenarioOptions;
   if (!state.data.cenarios.some(row => row.id === reportConfig.scenario)) reportConfig.scenario = currentScenario()?.id ?? "";
   if (!state.data.cenarios.some(row => row.id === reportConfig.compareScenario)) reportConfig.compareScenario = "";
   applyReportConfig();
@@ -692,8 +685,6 @@ function bindEvents() {
     const activeView = $(".active-view")?.id;
     updateNewGrantVisibility(activeView);
   });
-  $("#csjt-previous-scenario").addEventListener("change", event => { state.csjtPreviousScenarioId = event.target.value; renderCsjt(); });
-  $("#csjt-current-scenario").addEventListener("change", event => { state.csjtCurrentScenarioId = event.target.value; renderCsjt(); });
   $("#new-grant").addEventListener("click", () => openGrant());
   ["#search","#filter-type","#filter-link"].forEach(selector => $(selector).addEventListener("input", renderGrants));
   ["#report-scenario","#report-compare-scenario","#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));
@@ -798,7 +789,6 @@ async function start() {
   if (!state.identity) return;
   state.data = await loadApplicationData(state.identity.profile.role);
   state.scenarioId = vigenteScenario()?.id;
-  state.csjtCurrentScenarioId = state.scenarioId;
   $("#login-view").hidden = true; $("#app-view").hidden = false;
   $("#profile-name").textContent = state.identity.profile.nome || state.identity.profile.email;
   $("#profile-role").textContent = state.identity.profile.role;

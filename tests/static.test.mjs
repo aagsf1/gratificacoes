@@ -30,7 +30,8 @@ assert.doesNotMatch(html, /value="auditor"|data-role="[^"]*auditor/, "Auditor n�
 assert.match(html, /data-view="auditoria" data-role="admin"/, "A Auditoria deve aparecer somente para Admin");
 assert.match(html, /data-view="referencias" data-role="admin,gestor"/, "Referências deve aparecer somente para Admin e Gestor");
 assert.match(html, /id="referencias"[\s\S]*id="references-form"[\s\S]*id="references-table"/, "A página Referências deve conter competência, parâmetros e tabela financeira");
-assert.match(html, /id="grant-scenario"[\s\S]*id="report-scenario"[\s\S]*id="csjt-previous-scenario"[\s\S]*id="csjt-current-scenario"/, "Quadro, relatório e CSJT devem selecionar competências históricas");
+assert.match(html, /id="grant-scenario"[\s\S]*id="report-scenario"/, "Quadro e relatório devem selecionar competências históricas");
+assert.doesNotMatch(html, /id="csjt-previous-scenario"|id="csjt-current-scenario"/, "O Quadro CSJT direto não deve exibir seletores redundantes de competência");
 assert.match(html, /id="report-compare-scenario"[\s\S]*id="report-comparison"/, "O relatório deve comparar duas competências por identidade histórica");
 assert.match(html, /name="complete_data"/, "A competência deve declarar explicitamente se a base individualizada está completa");
 assert.match(html, /name="orcamento_paradigma"[\s\S]*name="competencia"[\s\S]*name="activate"/, "Referências deve administrar orçamento, competência e vigência");
