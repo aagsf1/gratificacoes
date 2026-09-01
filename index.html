@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>Gestão de Gratificações</title>
-  <link rel="stylesheet" href="./styles.css?v=20260831-history-v1">
+  <link rel="stylesheet" href="./styles.css?v=20260901-invite-button-v1">
   <link rel="stylesheet" href="./reports.css?v=20260829-institutional-v1">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -165,7 +165,7 @@
             <label>Nome<input name="nome" autocomplete="name" required></label>
             <label>E-mail<input name="email" type="email" autocomplete="email" required></label>
             <label>Perfil<select name="role" required><option value="consulta">consulta</option><option value="gestor">gestor</option><option value="admin">admin</option></select></label>
-            <button type="submit">Cadastrar e enviar convite</button>
+            <button class="invite-submit" type="submit">Cadastrar e enviar convite</button>
           </form>
         </div>
         <div class="panel">

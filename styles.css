@@ -64,6 +64,7 @@ nav button.active,nav button:hover{background:#0067A0;color:white}
 .panel h2{margin-top:0;font-size:1.05rem;color:#01426A}
 .toolbar{display:flex;gap:.7rem;flex-wrap:wrap}
 .toolbar>*{width:auto;min-width:180px}
+#user-form .invite-submit{align-self:flex-end}
 .table-wrap{overflow:auto}
 table{width:100%;border-collapse:collapse;font-size:.86rem}
 th,td{padding:.72rem;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}

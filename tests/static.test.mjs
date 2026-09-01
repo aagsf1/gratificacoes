@@ -26,6 +26,8 @@ assert.match(html, /id="password-recovery-form"/, "A página deve conter o formu
 assert.match(html, /id="recovery-code-form"[\s\S]*autocomplete="one-time-code"/, "A página deve permitir validar manualmente o código de recuperação");
 assert.match(html, /id="first-access"[\s\S]*Primeiro acesso \/ cadastrar senha/, "O login deve oferecer cadastro da primeira senha");
 assert.match(html, /id="user-form"[\s\S]*name="role"/, "A administração deve conter cadastro de usuário e perfil");
+assert.match(html, /id="user-form"[\s\S]*class="invite-submit"/, "O botão de convite deve ter estilo próprio de altura padronizada");
+assert.match(await readFile(resolve(root, "styles.css"), "utf8"), /#user-form \.invite-submit\{align-self:flex-end\}/, "O botão de convite não deve esticar junto aos campos do formulário");
 assert.doesNotMatch(html, /value="auditor"|data-role="[^"]*auditor/, "Auditor não deve existir nas opções nem na navegação");
 assert.match(html, /data-view="auditoria" data-role="admin"/, "A Auditoria deve aparecer somente para Admin");
 assert.match(html, /data-view="referencias" data-role="admin,gestor"/, "Referências deve aparecer somente para Admin e Gestor");
