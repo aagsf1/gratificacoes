@@ -5,6 +5,15 @@ import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsj
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
 const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null };
+const GRANT_SORT_FIELDS = Object.freeze({
+  tipo_codigo: "Tipo",
+  servidor_nome: "Servidor",
+  unidade_nome: "Unidade",
+  unidade_sigla: "Sigla",
+  com_vinculo: "Vínculo",
+  situacao: "Situação",
+});
+let grantSort = { key: "tipo_codigo", direction: "asc" };
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const money = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -169,15 +178,23 @@ function filteredGrants() {
   const query = $("#search").value.trim().toLocaleLowerCase("pt-BR");
   const type = $("#filter-type").value;
   const link = $("#filter-link").value;
-  return currentGrants().filter(row => {
+  const rows = currentGrants().filter(row => {
     const haystack = `${row.servidor_nome} ${row.unidade_nome} ${row.unidade_sigla}`.toLocaleLowerCase("pt-BR");
     return (!query || haystack.includes(query)) && (!type || row.tipo_codigo === type) && (!link || String(row.com_vinculo) === link);
   });
+  const valueForSort = row => grantSort.key === "com_vinculo" ? (row.com_vinculo ? "Com vínculo" : "Sem vínculo") : String(row[grantSort.key] || "");
+  return rows.sort((left, right) => valueForSort(left).localeCompare(valueForSort(right), "pt-BR", { numeric: true, sensitivity: "base" }) * (grantSort.direction === "asc" ? 1 : -1));
 }
 
 function renderGrants() {
   const rows = filteredGrants();
-  $("#grants-table").innerHTML = `<thead><tr><th>Tipo</th><th>Servidor</th><th>Unidade</th><th>Sigla</th><th>Vínculo</th><th>Situação</th><th class="number">Valor pago</th>${canEditScenario() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago))}</td>${canEditScenario() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}" data-version="${row.lock_version}">Inativar</button><button class="danger" data-remove-grant="${row.id}" data-version="${row.lock_version}">Excluir</button></td>` : ""}</tr>`).join("")}</tbody>`;
+  const sortableHeader = key => {
+    const active = grantSort.key === key;
+    const direction = grantSort.direction === "asc" ? "crescente" : "decrescente";
+    const indicator = active ? (grantSort.direction === "asc" ? " ▲" : " ▼") : "";
+    return `<th aria-sort="${active ? grantSort.direction === "asc" ? "ascending" : "descending" : "none"}"><button class="sort-button" data-sort-grants="${key}" aria-label="Classificar por ${GRANT_SORT_FIELDS[key]}${active ? `, ordem ${direction}` : ""}">${GRANT_SORT_FIELDS[key]}<span aria-hidden="true">${indicator}</span></button></th>`;
+  };
+  $("#grants-table").innerHTML = `<thead><tr>${Object.keys(GRANT_SORT_FIELDS).map(sortableHeader).join("")}<th class="number">Valor pago</th>${canEditScenario() ? "<th>Ações</th>" : ""}</tr></thead><tbody>${rows.map(row => `<tr><td>${row.tipo_codigo}</td><td>${escapeHtml(row.servidor_nome || "—")}</td><td>${escapeHtml(row.unidade_nome)}</td><td>${escapeHtml(row.unidade_sigla)}</td><td>${row.com_vinculo ? "Sim" : "Não"}</td><td>${escapeHtml(row.situacao)}</td><td class="number">${money(Number(row.valor_pago))}</td>${canEditScenario() ? `<td class="row-actions"><button data-edit="${row.id}">Editar</button><button class="secondary" data-delete="${row.id}" data-version="${row.lock_version}">Inativar</button><button class="danger" data-remove-grant="${row.id}" data-version="${row.lock_version}">Excluir</button></td>` : ""}</tr>`).join("")}</tbody>`;
 }
 
 function csjtValues(summary, types) {
@@ -708,6 +725,12 @@ function bindEvents() {
     finally { event.currentTarget.disabled = false; }
   });
   $("#grants-table").addEventListener("click", async event => {
+    const sort = event.target.closest("[data-sort-grants]")?.dataset.sortGrants;
+    if (sort) {
+      grantSort = { key: sort, direction: grantSort.key === sort && grantSort.direction === "asc" ? "desc" : "asc" };
+      renderGrants();
+      return;
+    }
     const edit = event.target.dataset.edit;
     const inactivate = event.target.dataset.delete;
     const remove = event.target.dataset.removeGrant;

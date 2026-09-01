@@ -68,6 +68,9 @@ assert.match(calc, /summarizeCsjtPrevious\(types, budget\)[\s\S]*linkedAmount4\(
 assert.match(await readFile(resolve(root, "reports.css"), "utf8"), /\.csjt-bottom[\s\S]*\.info-value[\s\S]*body\.printing-csjt/, "O Quadro CSJT deve manter os quadros inferiores e a impressão da referência");
 assert.match(app, /updateNewGrantVisibility\(button\.dataset\.view\)/, "Nova gratificação deve acompanhar a seção ativa");
 assert.match(app, /activeView === "gratificacoes"/, "Nova gratificação deve aparecer somente em Gratificações");
+assert.match(app, /GRANT_SORT_FIELDS[\s\S]*tipo_codigo[\s\S]*servidor_nome[\s\S]*unidade_nome[\s\S]*unidade_sigla[\s\S]*com_vinculo[\s\S]*situacao/, "O Quadro de Gratificações deve permitir classificar os seis campos solicitados");
+assert.match(app, /aria-sort[\s\S]*data-sort-grants[\s\S]*localeCompare/, "Os cabeçalhos classificáveis devem indicar a ordem e ordenar os registros");
+assert.match(await readFile(resolve(root, "styles.css"), "utf8"), /\.sort-button[\s\S]*cursor:pointer/, "Os cabeçalhos classificáveis devem ter aparência de controle interativo");
 assert.match(app, /data-remove-grant[\s\S]*Excluir[\s\S]*Excluir definitivamente esta gratificação/, "O quadro deve oferecer exclusão definitiva com confirmação explícita");
 assert.match(await readFile(resolve(root, "data-service.js"), "utf8"), /from\("gratificacoes"\)\.delete\(\)[\s\S]*eq\("lock_version"/, "A exclusão deve respeitar a versão do registro");
 const grantDeleteMigration = await readFile(resolve(root, "supabase-grant-delete-migration.sql"), "utf8");

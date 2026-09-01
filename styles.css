@@ -69,6 +69,8 @@ nav button.active,nav button:hover{background:#0067A0;color:white}
 table{width:100%;border-collapse:collapse;font-size:.86rem}
 th,td{padding:.72rem;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 th{color:#01426A;background:color-mix(in srgb,#0067A0 12%,white);font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
+.sort-button{display:inline-flex;align-items:center;gap:.18rem;padding:0;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+.sort-button:hover,.sort-button:focus-visible{color:#007B5F;text-decoration:underline;text-underline-offset:.22rem;outline:none}
 tbody tr:hover{background:color-mix(in srgb,#00B388 7%,white)}
 td.number,th.number{text-align:right;font-variant-numeric:tabular-nums}
 #summary-table tbody td,#summary-table tfoot th,#summary-table tfoot td{font-weight:750}
