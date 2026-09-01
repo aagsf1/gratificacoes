@@ -55,7 +55,7 @@ nav button.active,nav button:hover{background:#0067A0;color:white}
 .active-view{display:grid;gap:1.2rem}
 .cards{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:1rem}
 .cards.compact{margin-top:1rem}
-.card,.panel{background:white;border:1px solid var(--line);border-radius:14px;padding:1.2rem;box-shadow:0 4px 18px color-mix(in srgb,#01426A 8%,transparent)}
+.card,.panel{min-width:0;background:white;border:1px solid var(--line);border-radius:14px;padding:1.2rem;box-shadow:0 4px 18px color-mix(in srgb,#01426A 8%,transparent)}
 .card small{display:block;color:var(--muted);margin-bottom:.45rem}
 .card strong{font-size:1.5rem;color:#01426A}
 .card.good strong{color:#007B5F}
@@ -72,6 +72,13 @@ tbody tr:hover{background:color-mix(in srgb,#00B388 7%,white)}
 td.number,th.number{text-align:right;font-variant-numeric:tabular-nums}
 .row-actions{display:flex;gap:.35rem}
 .row-actions button{padding:.4rem .55rem;font-size:.78rem}
+#profiles-table td{vertical-align:middle}
+#profiles-table input[type=checkbox]{width:auto;min-width:1.1rem;min-height:1.1rem}
+.profile-edit-input{min-width:190px;padding:.55rem}
+.profile-email-input{min-width:245px}
+.profile-row-dirty{background:color-mix(in srgb,#FBDB65 30%,white)}
+.profile-row-dirty:hover{background:color-mix(in srgb,#FBDB65 42%,white)}
+.profile-change-status{display:inline-flex;margin-bottom:.45rem;padding:.2rem .45rem;border-radius:99px;background:#FBDB65;color:#01426A;font-size:.7rem;font-weight:750;white-space:nowrap}
 .bars{display:grid;gap:.7rem}
 .bar-row{display:grid;grid-template-columns:60px 1fr 42px;gap:.7rem;align-items:center}
 .bar{height:10px;border-radius:99px;background:color-mix(in srgb,#0067A0 14%,white);overflow:hidden}

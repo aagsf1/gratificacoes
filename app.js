@@ -1,6 +1,6 @@
 import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
-import { changeCompetenceStatus, clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateProfile } from "./data-service.js?v=20260831-history-v1";
+import { changeCompetenceStatus, clearAuditLogs, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateUser } from "./data-service.js?v=20260901-update-user-v1";
 import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjtPrevious } from "./calc.js?v=20260831-csjt-fixed-v1";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 
@@ -388,8 +388,31 @@ function renderAudit() {
 function renderProfiles() {
   $("#profiles-table").innerHTML = `<thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ativo</th><th>Ações</th></tr></thead><tbody>${state.data.perfis.map(row => {
     const ownAccount = row.id === state.identity.profile.id;
-    return `<tr data-profile="${row.id}"><td>${escapeHtml(row.nome || "—")}</td><td>${escapeHtml(row.email)}</td><td><select data-field="role">${["admin","gestor","consulta"].map(role => `<option ${row.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></td><td><input data-field="ativo" type="checkbox" ${row.ativo ? "checked" : ""}></td><td><div class="row-actions"><button data-save-profile="${row.id}">Salvar</button><button class="danger" data-delete-profile="${row.id}" ${ownAccount ? 'disabled title="Sua própria conta não pode ser excluída"' : ""}>Excluir</button></div></td></tr>`;
+    return `<tr data-profile="${row.id}"><td><input class="profile-edit-input" data-field="nome" value="${escapeHtml(row.nome || "")}" maxlength="160" required aria-label="Nome de ${escapeHtml(row.email)}"></td><td><input class="profile-edit-input profile-email-input" data-field="email" type="email" value="${escapeHtml(row.email)}" maxlength="254" required aria-label="E-mail de ${escapeHtml(row.nome || row.email)}"></td><td><select data-field="role" aria-label="Perfil de ${escapeHtml(row.nome || row.email)}">${["admin","gestor","consulta"].map(role => `<option value="${role}" ${row.role === role ? "selected" : ""}>${role}</option>`).join("")}</select></td><td><input data-field="ativo" type="checkbox" ${row.ativo ? "checked" : ""} aria-label="Usuário ${escapeHtml(row.nome || row.email)} ativo"></td><td><span class="profile-change-status" hidden>Alterações não salvas</span><div class="row-actions"><button data-save-profile="${row.id}" disabled>Salvar</button><button class="danger" data-delete-profile="${row.id}" ${ownAccount ? 'disabled title="Sua própria conta não pode ser excluída"' : ""}>Excluir</button></div></td></tr>`;
   }).join("")}</tbody>`;
+}
+
+function profileRowValue(row) {
+  return {
+    id: row.dataset.profile,
+    nome: row.querySelector('[data-field="nome"]').value.trim(),
+    email: row.querySelector('[data-field="email"]').value.trim().toLowerCase(),
+    role: row.querySelector('[data-field="role"]').value,
+    ativo: row.querySelector('[data-field="ativo"]').checked,
+  };
+}
+
+function updateProfileDirtyState(row) {
+  const original = state.data.perfis.find(profile => profile.id === row.dataset.profile);
+  if (!original) return;
+  const current = profileRowValue(row);
+  const dirty = current.nome !== String(original.nome || "").trim()
+    || current.email !== String(original.email || "").trim().toLowerCase()
+    || current.role !== original.role
+    || current.ativo !== Boolean(original.ativo);
+  row.classList.toggle("profile-row-dirty", dirty);
+  row.querySelector("[data-save-profile]").disabled = !dirty;
+  row.querySelector(".profile-change-status").hidden = !dirty;
 }
 
 function renderOnlineUsers() {
@@ -700,14 +723,41 @@ function bindEvents() {
     const deleteId = event.target.dataset.deleteProfile;
     if (saveId) {
       const row = event.target.closest("tr");
-      try { await updateProfile(saveId, row.querySelector('[data-field=role]').value, row.querySelector('[data-field=ativo]').checked); await reload(); toast("Perfil atualizado."); }
+      const user = profileRowValue(row);
+      const profile = state.data.perfis.find(item => item.id === saveId);
+      const nameInput = row.querySelector('[data-field="nome"]');
+      const emailInput = row.querySelector('[data-field="email"]');
+      if (!nameInput.reportValidity() || !emailInput.reportValidity()) return;
+      const ownAccount = saveId === state.identity.profile.id;
+      if (ownAccount && user.email !== String(profile.email).toLowerCase()
+        && !confirm(`Você está alterando o e-mail da própria conta para ${user.email}. Após salvar, use o novo e-mail nos próximos acessos. Deseja continuar?`)) return;
+      if (profile.role === "admin" && profile.ativo && (user.role !== "admin" || !user.ativo)
+        && !confirm("Esta alteração removerá um administrador ativo. O sistema impedirá a remoção do último administrador. Deseja continuar?")) return;
+      event.target.disabled = true;
+      try {
+        const result = await updateUser(user);
+        if (ownAccount && !user.ativo) {
+          await signOut();
+          location.reload();
+          return;
+        }
+        if (ownAccount) {
+          toast(result.warning || "Usuário atualizado. A sessão será recarregada.", Boolean(result.warning));
+          setTimeout(() => location.reload(), 700);
+          return;
+        }
+        await reload();
+        toast(result.warning || "Usuário atualizado.", Boolean(result.warning));
+      }
       catch (error) { toast(error.message, true); }
+      finally { if (event.target.isConnected) event.target.disabled = false; }
       return;
     }
     if (!deleteId) return;
     const profile = state.data.perfis.find(item => item.id === deleteId);
     if (!profile) return toast("Usuário não encontrado.", true);
-    const confirmation = prompt(`Esta exclusão é permanente. Para confirmar, digite o e-mail ${profile.email}`);
+    const dirtyWarning = event.target.closest("tr")?.classList.contains("profile-row-dirty") ? " Alterações ainda não salvas serão ignoradas." : "";
+    const confirmation = prompt(`Esta exclusão é permanente.${dirtyWarning} Para confirmar, digite o e-mail cadastrado ${profile.email}`);
     if (confirmation === null) return;
     if (confirmation.trim().toLowerCase() !== profile.email.toLowerCase()) return toast("O e-mail de confirmação não confere.", true);
     event.target.disabled = true;
@@ -718,6 +768,12 @@ function bindEvents() {
     } catch (error) { toast(error.message, true); }
     finally { event.target.disabled = false; }
   });
+  for (const eventName of ["input", "change"]) {
+    $("#profiles-table").addEventListener(eventName, event => {
+      if (!event.target.matches("[data-field]")) return;
+      updateProfileDirtyState(event.target.closest("tr"));
+    });
+  }
   $("#user-form").addEventListener("submit", async event => {
     event.preventDefault();
     const form = new FormData(event.target);

@@ -71,9 +71,17 @@ export async function inactivateGrant(id, lockVersion) {
   if (!data) throw new Error("Esta gratificação foi alterada por outra sessão. Recarregue os dados e tente novamente.");
 }
 
-export async function updateProfile(id, role, ativo) {
-  const { error } = await db().from("profiles").update({ role, ativo }).eq("id", id);
-  if (error) throw error;
+export async function updateUser(user) {
+  const { data, error } = await db().functions.invoke("update-user", {
+    body: {
+      userId: user.id,
+      nome: user.nome.trim(),
+      email: user.email.trim().toLowerCase(),
+      role: user.role,
+      ativo: user.ativo,
+    },
+  });
+  return functionResponse(data, error);
 }
 
 export async function inviteUser(nome, email, role) {

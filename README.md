@@ -32,7 +32,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 9. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
 10. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
 11. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
-12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql` e `supabase-history-migration.sql`, nesta ordem.
+12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql` e `supabase-user-profile-migration.sql`, nesta ordem.
 
 ## Histórico por competência
 
@@ -56,6 +56,7 @@ supabase link --project-ref wiollbxstffanegwdiod
 supabase secrets set SITE_URL=https://aagsf1.github.io/gratificacoes/
 supabase functions deploy invite-user
 supabase functions deploy delete-user
+supabase functions deploy update-user
 ```
 
 Depois disso, um administrador pode informar nome, e-mail e perfil na aplicação. O usuário receberá um código de convite, abrirá **Primeiro acesso / cadastrar senha** na tela inicial, validará o código e criará a própria senha. Não é gerada nem enviada uma senha automática. Os perfis continuam protegidos por RLS e somente administradores podem alterá-los.
@@ -63,6 +64,8 @@ Depois disso, um administrador pode informar nome, e-mail e perfil na aplicaçã
 O modelo de convite não usa `ConfirmationURL`: o botão do e-mail apenas abre o aplicativo e o código é consumido somente após a confirmação manual. Essa configuração evita que scanners de segurança invalidem o convite antes do usuário.
 
 ## Administração de usuários
+
+A edição de nome, e-mail, perfil e situação é executada exclusivamente pela Edge Function `update-user`, depois de validar novamente a sessão e o perfil do administrador. A função mantém o mesmo UUID, sincroniza `auth.users` e `public.profiles`, impede e-mails duplicados e preserva o último administrador ativo. O novo e-mail é confirmado administrativamente para uso imediato, sem disparar outra confirmação; ao editar a própria conta, a aplicação recarrega a sessão e o novo e-mail passa a ser usado nos acessos seguintes. Toda alteração gera o evento `UPDATE_USER` em `audit_logs`.
 
 A exclusão permanente é executada exclusivamente pela Edge Function `delete-user`, depois de validar novamente a sessão e o perfil do administrador. A aplicação impede a autoexclusão e a remoção do último administrador ativo. A operação exige que o administrador digite o e-mail do usuário e é registrada em `audit_logs`.
 
