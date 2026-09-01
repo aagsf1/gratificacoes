@@ -418,7 +418,7 @@ function renderOnlineUsers() {
   status.textContent = state.presenceStatus === "error"
     ? "Presença indisponível"
     : state.presenceStatus === "connecting" ? "Conectando…" : `${online.length} online`;
-  const viewNames = { dashboard: "Dashboard", gratificacoes: "Quadro de Gratificações", relatorios: "Relatórios", referencias: "Referências", auditoria: "Auditoria", administracao: "Administração" };
+  const viewNames = { dashboard: "Painel Geral", gratificacoes: "Quadro de Gratificações", relatorios: "Relatórios", referencias: "Referências", auditoria: "Auditoria", administracao: "Administração" };
   const rows = online.map(entry => {
     const profile = profiles.get(entry.userId);
     return `<tr><td><span class="online-dot" aria-label="Online"></span>${escapeHtml(profile.nome || "—")}</td><td>${escapeHtml(profile.email)}</td><td>${escapeHtml(profile.role)}</td><td>${escapeHtml(viewNames[entry.currentView] || entry.currentView)}</td><td>${dateTime(entry.onlineAt)}</td><td class="number">${entry.connections}</td></tr>`;

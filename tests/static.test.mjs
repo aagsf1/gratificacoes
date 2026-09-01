@@ -36,6 +36,8 @@ assert.match(html, /id="report-compare-scenario"[\s\S]*id="report-comparison"/, 
 assert.match(html, /name="complete_data"/, "A competência deve declarar explicitamente se a base individualizada está completa");
 assert.match(html, /name="orcamento_paradigma"[\s\S]*name="competencia"[\s\S]*name="activate"/, "Referências deve administrar orçamento, competência e vigência");
 assert.match(html, /data-view="gratificacoes">Quadro de Gratificações</, "O menu deve usar o novo nome do quadro");
+assert.match(html, /data-view="dashboard" class="active">Painel Geral/, "O menu deve apresentar Painel Geral");
+assert.match(html, /id="page-title">Painel Geral/, "O título inicial deve apresentar Painel Geral");
 assert.doesNotMatch(html, /Cenário vigente/i, "A frase Cenário vigente deve ser removida");
 assert.match(html, /src="\.\/assets\/trt16-logo\.png"[^>]+alt="Justiça do Trabalho — TRT da 16ª Região \(MA\)"/, "O menu deve exibir a logo oficial do TRT da 16ª Região com texto alternativo");
 assert.match(html, /class="brand"[\s\S]*Gestão de Gratificações[\s\S]*<\/div>\s*<nav/, "O topo do menu deve manter o nome Gestão de Gratificações");

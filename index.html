@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="./reports.css?v=20260829-institutional-v1">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="./app.js?v=20260901-dashboard-total-v1"></script>
+  <script type="module" src="./app.js?v=20260901-painel-geral-v1"></script>
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -58,7 +58,7 @@
         <strong>Gestão de Gratificações</strong>
       </div>
       <nav aria-label="Menu principal">
-        <button data-view="dashboard" class="active">Dashboard</button>
+        <button data-view="dashboard" class="active">Painel Geral</button>
         <button data-view="gratificacoes">Quadro de Gratificações</button>
         <button data-view="relatorios">Relatórios</button>
         <button data-view="relatorios" data-report-view="csjt">Quadro CSJT</button>
@@ -69,7 +69,7 @@
       <div class="identity"><strong id="profile-name"></strong><small id="profile-role"></small><button id="logout" class="link-button">Sair</button></div>
     </aside>
     <main class="content">
-      <header><h1 id="page-title">Dashboard</h1><button id="new-grant" data-write hidden>Nova gratificação</button></header>
+      <header><h1 id="page-title">Painel Geral</h1><button id="new-grant" data-write hidden>Nova gratificação</button></header>
       <section id="dashboard" class="view active-view">
         <div id="cards" class="cards"></div>
         <div class="panel"><h2>Distribuição por CJ</h2><div id="type-bars" class="bars"></div></div>
