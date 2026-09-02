@@ -109,6 +109,7 @@ dialog form{display:grid;gap:1rem}
 .reference-active{display:flex;align-items:center;gap:.55rem;min-height:42px}
 .reference-active input,.reference-custom input{width:auto}
 .reference-status{display:inline-flex;justify-self:start;border-radius:99px;padding:.35rem .7rem;background:color-mix(in srgb,#0067A0 12%,white);color:#01426A;font-size:.8rem;font-weight:750}
+#grant-scenario-status{display:flex;align-self:stretch;align-items:center;justify-content:center;text-align:center}
 #references-table input[type=number]{min-width:125px;text-align:right;font-variant-numeric:tabular-nums}
 .reference-custom{display:flex;align-items:center;gap:.45rem;white-space:normal;min-width:155px}
 .reference-save{display:flex;justify-content:flex-end;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem}
