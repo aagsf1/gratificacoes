@@ -18,7 +18,7 @@ begin
     )
   ) into payload;
   payload := payload || jsonb_build_object('summary',jsonb_build_object('cenarios',jsonb_array_length(payload->'data'->'cenarios'),'referencias',jsonb_array_length(payload->'data'->'referencias'),'gratificacoes',jsonb_array_length(payload->'data'->'gratificacoes'),'auditoria',jsonb_array_length(payload->'data'->'auditoria')));
-  return payload || jsonb_build_object('integrity',jsonb_build_object('sha256',encode(digest(payload::text,'sha256'),'hex')));
+  return payload || jsonb_build_object('integrity',jsonb_build_object('sha256',encode(digest(convert_to(payload::text,'UTF8'),'sha256'),'hex')));
 end $$;
 
 create or replace function public.restore_backup_as_new_competence(p_backup jsonb,p_competencia date,p_backup_id text)
