@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const html = await readFile(resolve(root, "index.html"), "utf8");
+assert.match(html, /<link rel="icon" href="https:\/\/www\.trt16\.jus\.br\/sites\/portal\/files\/favicon_1\.ico"/, "A aplicação deve usar o favicon oficial do TRT-16");
 const refs = [...html.matchAll(/(?:src|href)="(\.\/[^"?#]+)(?:[?#][^"]*)?"/g)].map(match => match[1]);
 for (const ref of refs) await access(resolve(root, ref.slice(2)));
 const all = await Promise.all(["index.html","app.js","auth.js","presence.js","data-service.js","backup.js","supabase-client.js","app-config.js","styles.css","reports.css","supabase-email-template-recovery.html","supabase-email-template-invite.html","supabase-setup.sql","supabase-admin-presence-migration.sql","supabase-access-ui-migration.sql","supabase-references-migration.sql","supabase-history-migration.sql","supabase-grant-delete-migration.sql","supabase-backup-migration.sql","supabase-user-profile-migration.sql","supabase-seed.sql","supabase/functions/invite-user/index.ts","supabase/functions/delete-user/index.ts","supabase/functions/update-user/index.ts","supabase/functions/update-user/validation.js","supabase/functions/backup-data/index.ts",".nojekyll",".github/workflows/pages.yml"].map(file => readFile(resolve(root,file),"utf8")));
