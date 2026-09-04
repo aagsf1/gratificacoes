@@ -227,6 +227,10 @@ function scenarioCompetence(scenario = currentScenario()) {
   return match ? `${match[2]}/${match[1]}` : "não informada";
 }
 
+function scenarioDisplayName(scenario) {
+  return `${scenarioCompetence(scenario)} — ${scenario?.status === "VIGENTE" ? "Vigente" : "Histórica"}`;
+}
+
 function renderCsjt() {
   const scenarios = state.data.cenarios;
   const fallback = currentScenario();
@@ -579,7 +583,7 @@ function populateOptions() {
   $("#report-group").innerHTML = `<option value="">Sem agrupamento</option>${REPORT_FIELDS.filter(field => field.groupable).map(field => `<option value="${field.key}">${field.label}</option>`).join("")}`;
   $("#report-order").innerHTML = REPORT_FIELDS.map(field => `<option value="${field.key}">${field.label}</option>`).join("");
   $("#grant-form [name=tipo_id]").innerHTML = state.data.tipos.map(item => `<option value="${item.id}">${item.codigo}</option>`).join("");
-  const scenarioOptions = [...state.data.cenarios].sort((a,b) => String(b.competencia).localeCompare(String(a.competencia))).map(row => `<option value="${row.id}">${scenarioCompetence(row)} — ${SCENARIO_LABELS[row.status] || row.status}</option>`).join("");
+  const scenarioOptions = [...state.data.cenarios].sort((a,b) => String(b.competencia).localeCompare(String(a.competencia))).map(row => `<option value="${row.id}">${scenarioDisplayName(row)}</option>`).join("");
   $("#grant-scenario").innerHTML = scenarioOptions;
   $("#report-scenario").innerHTML = scenarioOptions;
   $("#report-compare-scenario").innerHTML = `<option value="">Sem comparação</option>${scenarioOptions}`;
