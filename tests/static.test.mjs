@@ -45,6 +45,7 @@ assert.match(html, /id="page-title">Painel Geral/, "O título inicial deve apres
 assert.match(html, /id="csjt-reference"/, "O Quadro CSJT deve oferecer um seletor de referência");
 assert.doesNotMatch(html, /id="csjt-previous-reference"|id="csjt-current-reference"/, "O Quadro CSJT deve usar somente uma referência para as duas tabelas");
 assert.match(await readFile(resolve(root, "app.js"), "utf8"), /scenario\?\.status === "VIGENTE" \? "Vigente" : "Histórica"/, "Competências não vigentes devem ser identificadas como históricas");
+assert.match(await readFile(resolve(root, "app.js"), "utf8"), /reference-status"\)\.textContent = scenario \? `Situação: \$\{scenarioDisplayStatus\(scenario\)\}`/, "Referências deve identificar competências não vigentes como históricas");
 assert.doesNotMatch(html, /Cenário vigente/i, "A frase Cenário vigente deve ser removida");
 assert.match(html, /src="\.\/assets\/trt16-logo\.png"[^>]+alt="Justiça do Trabalho — TRT da 16ª Região \(MA\)"/, "O menu deve exibir a logo oficial do TRT da 16ª Região com texto alternativo");
 assert.match(html, /class="brand"[\s\S]*Gestão de Gratificações[\s\S]*<\/div>\s*<nav/, "O topo do menu deve manter o nome Gestão de Gratificações");

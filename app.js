@@ -231,6 +231,10 @@ function scenarioDisplayName(scenario) {
   return `${scenarioCompetence(scenario)} — ${scenario?.status === "VIGENTE" ? "Vigente" : "Histórica"}`;
 }
 
+function scenarioDisplayStatus(scenario) {
+  return scenario?.status === "VIGENTE" ? "Vigente" : "Histórica";
+}
+
 function renderCsjt() {
   const scenarios = state.data.cenarios;
   const fallback = currentScenario();
@@ -523,7 +527,7 @@ function renderReferenceDraft({ scenario = null, rows, competence = "", copy = f
   const copyField = $("#copy-grants-field");
   copyField.hidden = !copy;
   form.elements.copy_grants.checked = copy;
-  $("#reference-status").textContent = scenario ? `Situação: ${SCENARIO_LABELS[scenario.status] || scenario.status}` : (copy ? "Nova competência — referências copiadas" : "Nova competência — percentual padrão de 65,00%");
+  $("#reference-status").textContent = scenario ? `Situação: ${scenarioDisplayStatus(scenario)}` : (copy ? "Nova competência — referências copiadas" : "Nova competência — percentual padrão de 65,00%");
   $("#reference-validation").textContent = "";
   renderReferenceTable(rows);
   const editable = !scenario || canEditScenario(scenario);
