@@ -5,7 +5,7 @@ import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsj
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
 import { downloadBackup, validateBackup } from "./backup.js?v=20260904-backup-v1";
 
-const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null };
+const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null, csjtPreviousScenarioId: null, csjtCurrentScenarioId: null };
 const GRANT_SORT_FIELDS = Object.freeze({
   tipo_codigo: "Tipo",
   servidor_nome: "Servidor",
@@ -228,8 +228,14 @@ function scenarioCompetence(scenario = currentScenario()) {
 }
 
 function renderCsjt() {
-  const current = currentScenario();
-  const previous = current;
+  const scenarios = state.data.cenarios;
+  const fallback = currentScenario();
+  const previous = scenarios.find(row => row.id === state.csjtPreviousScenarioId) ?? fallback;
+  const current = scenarios.find(row => row.id === state.csjtCurrentScenarioId) ?? fallback;
+  state.csjtPreviousScenarioId = previous?.id ?? null;
+  state.csjtCurrentScenarioId = current?.id ?? null;
+  $("#csjt-previous-reference").value = state.csjtPreviousScenarioId ?? "";
+  $("#csjt-current-reference").value = state.csjtCurrentScenarioId ?? "";
   const previousTypes = scenarioTypes(previous?.id);
   const currentTypes = scenarioTypes(current?.id);
   const previousSummary = summarizeCsjtPrevious(previousTypes, previous?.orcamento_paradigma ?? 0);
@@ -237,7 +243,7 @@ function renderCsjt() {
   const warning = $("#csjt-history-warning");
   warning.hidden = true;
   warning.textContent = "";
-  $("#csjt-competence").textContent = `Valores calculados pela competência ${scenarioCompetence(current)}`;
+  $("#csjt-competence").textContent = `Referências: situação anterior ${scenarioCompetence(previous)} · situação posterior ${scenarioCompetence(current)}`;
   $("#csjt-sheet").innerHTML = `${csjtSection("Situação Anterior (30/06/2022)", previousSummary, previousTypes)}${csjtSection(`Situação Posterior (${scenarioCompetence(current)})`, currentSummary, currentTypes, true)}`;
 }
 
@@ -578,6 +584,10 @@ function populateOptions() {
   $("#grant-scenario").innerHTML = scenarioOptions;
   $("#report-scenario").innerHTML = scenarioOptions;
   $("#report-compare-scenario").innerHTML = `<option value="">Sem comparação</option>${scenarioOptions}`;
+  $("#csjt-previous-reference").innerHTML = scenarioOptions;
+  $("#csjt-current-reference").innerHTML = scenarioOptions;
+  if (!state.data.cenarios.some(row => row.id === state.csjtPreviousScenarioId)) state.csjtPreviousScenarioId = currentScenario()?.id ?? "";
+  if (!state.data.cenarios.some(row => row.id === state.csjtCurrentScenarioId)) state.csjtCurrentScenarioId = currentScenario()?.id ?? "";
   if (!state.data.cenarios.some(row => row.id === reportConfig.scenario)) reportConfig.scenario = currentScenario()?.id ?? "";
   if (!state.data.cenarios.some(row => row.id === reportConfig.compareScenario)) reportConfig.compareScenario = "";
   applyReportConfig();
@@ -733,6 +743,8 @@ function bindEvents() {
     const activeView = $(".active-view")?.id;
     updateNewGrantVisibility(activeView);
   });
+  $("#csjt-previous-reference").addEventListener("change", event => { state.csjtPreviousScenarioId = event.target.value; renderCsjt(); });
+  $("#csjt-current-reference").addEventListener("change", event => { state.csjtCurrentScenarioId = event.target.value; renderCsjt(); });
   $("#new-grant").addEventListener("click", () => openGrant());
   ["#search","#filter-type","#filter-link"].forEach(selector => $(selector).addEventListener("input", renderGrants));
   ["#report-scenario","#report-compare-scenario","#report-type","#report-situation","#report-link","#report-active","#report-unit","#report-group","#report-order","#report-direction"].forEach(selector => $(selector).addEventListener("change", () => { readReportConfig(); renderReport(); }));

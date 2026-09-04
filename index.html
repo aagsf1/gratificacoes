@@ -7,10 +7,10 @@
   <title>Gestão de Gratificações</title>
   <link rel="icon" href="https://www.trt16.jus.br/sites/portal/files/favicon_1.ico" sizes="any">
   <link rel="stylesheet" href="./styles.css?v=20260904-backup-v1">
-  <link rel="stylesheet" href="./reports.css?v=20260829-institutional-v1">
+  <link rel="stylesheet" href="./reports.css?v=20260904-csjt-references-v1">
   <style>[hidden]{display:none!important}</style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="./app.js?v=20260904-backup-v1"></script>
+  <script type="module" src="./app.js?v=20260904-csjt-references-v1"></script>
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -113,7 +113,7 @@
           </div>
         </div>
         <div id="csjt-report-view" hidden>
-          <div class="csjt-toolbar"><div><strong>Relatório Quadro CSJT</strong><span id="csjt-competence"></span></div><button id="print-csjt" class="secondary" type="button">Imprimir / PDF</button></div>
+          <div class="csjt-toolbar"><div><strong>Relatório Quadro CSJT</strong><span id="csjt-competence"></span></div><div class="csjt-reference-selectors"><label>Referência de valores — Situação Anterior<select id="csjt-previous-reference" aria-label="Referência de valores da Situação Anterior"></select></label><label>Referência e dados — Situação Posterior<select id="csjt-current-reference" aria-label="Referência e dados da Situação Posterior"></select></label></div><button id="print-csjt" class="secondary" type="button">Imprimir / PDF</button></div>
           <p id="csjt-history-warning" class="warning" hidden></p>
           <div id="csjt-sheet" class="csjt-report" aria-label="Relatório Quadro CSJT"></div>
         </div>
