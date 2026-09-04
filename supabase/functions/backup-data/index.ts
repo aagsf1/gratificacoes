@@ -22,7 +22,7 @@ Deno.serve(async request => {
   }
   if (payload.action === "restore") {
     if (!payload.backup || !/^\d{4}-\d{2}$/.test(String(payload.competence || "")) || typeof payload.sourceScenarioId !== "string") return response({ error: "Dados de restauração inválidos." }, 400, origin);
-    const { data, error } = await client.rpc("restore_backup_as_new_competence", { p_backup: payload.backup, p_competencia: `${payload.competence}-01`, p_backup_id: payload.sourceScenarioId });
+    const { data, error } = await client.rpc("restore_backup_as_new_competence", { p_backup: payload.backup, p_competencia: String(payload.competence) + "-01", p_backup_id: payload.sourceScenarioId });
     return error ? response({ error: error.message }, 400, origin) : response({ data }, 200, origin);
   }
   return response({ error: "Ação de backup inválida." }, 400, origin);
