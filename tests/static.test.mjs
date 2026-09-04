@@ -86,7 +86,8 @@ assert.match(grantDeleteMigration, /gratificacoes_delete[\s\S]*for delete[\s\S]*
 assert.match(grantDeleteMigration, /grant delete on public\.gratificacoes to authenticated/, "O banco deve conceder a operação somente a usuários autenticados sujeitos ao RLS");
 const backupMigration = await readFile(resolve(root, "supabase-backup-migration.sql"), "utf8");
 assert.match(backupMigration, /export_operational_backup[\s\S]*public\.is_admin\(\)/, "A exportação deve exigir admin no banco");
-assert.match(backupMigration, /digest\(convert_to\(payload::text,'UTF8'\),'sha256'\)/, "A impressão de integridade deve converter o texto para bytea antes do SHA-256");
+assert.match(backupMigration, /create extension if not exists pgcrypto with schema extensions/, "A migração deve habilitar pgcrypto no schema extensions");
+assert.match(backupMigration, /extensions\.digest\(convert_to\(payload::text,'UTF8'\),'sha256'\)/, "A impressão de integridade deve converter o texto para bytea antes do SHA-256");
 assert.match(backupMigration, /restore_backup_as_new_competence[\s\S]*'RASCUNHO'[\s\S]*RESTORE_BACKUP/, "A restauração deve criar rascunho e registrar auditoria");
 const backupFunction = await readFile(resolve(root, "supabase/functions/backup-data/index.ts"), "utf8");
 assert.match(backupFunction, /profile\?\.role !== "admin" \|\| !profile\.ativo/, "A função de backup deve exigir administrador ativo");
