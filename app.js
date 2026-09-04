@@ -1,8 +1,9 @@
 import { isConfigured } from "./app-config.js?v=20260829-admin";
 import { currentIdentity, onAuthStateChange, requestPasswordReset, signIn, signOut, updatePassword, verifyAccessCode } from "./auth.js?v=20260829-admin";
-import { changeCompetenceStatus, clearAuditLogs, deleteGrant, deleteUser, inactivateGrant, inviteUser, loadApplicationData, saveFinancialReferences, saveGrant, updateUser } from "./data-service.js?v=20260901-grant-delete-v1";
+import { changeCompetenceStatus, clearAuditLogs, deleteGrant, deleteUser, exportOperationalBackup, inactivateGrant, inviteUser, loadApplicationData, restoreBackupAsNewCompetence, saveFinancialReferences, saveGrant, updateUser } from "./data-service.js?v=20260904-backup-v1";
 import { decimal4, fromDecimal4, linkedValueFromPercent, summarize, summarizeCsjtPrevious } from "./calc.js?v=20260831-csjt-fixed-v1";
 import { startPresence, stopPresence, updatePresence } from "./presence.js?v=20260829-presence-v3";
+import { downloadBackup, validateBackup } from "./backup.js?v=20260904-backup-v1";
 
 const state = { identity: null, data: null, summary: null, onlineUsers: [], presenceStatus: "connecting", scenarioId: null, referenceScenarioId: null };
 const GRANT_SORT_FIELDS = Object.freeze({
@@ -14,6 +15,7 @@ const GRANT_SORT_FIELDS = Object.freeze({
   situacao: "Situação",
 });
 let grantSort = { key: "tipo_codigo", direction: "asc" };
+let validatedBackup = null;
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const money = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
@@ -405,6 +407,34 @@ function renderProfiles() {
   }).join("")}</tbody>`;
 }
 
+function renderBackupValidation() {
+  const output = $("#backup-validation");
+  const source = $("#backup-source-scenario");
+  const restore = $("#restore-backup");
+  if (!validatedBackup) {
+    output.textContent = "Selecione um arquivo JSON para validar antes de restaurar.";
+    source.innerHTML = "";
+    restore.disabled = true;
+    return;
+  }
+  const { result, backup } = validatedBackup;
+  const lines = [
+    `Formato: ${result.summary?.format || "inválido"}`,
+    `Gerado em: ${result.summary?.generatedAt ? dateTime(result.summary.generatedAt) : "não informado"}`,
+    `Competências: ${result.summary?.cenarios.length || 0}`,
+    `Gratificações: ${result.summary?.gratificacoes || 0}`,
+    `Referências financeiras: ${result.summary?.referencias || 0}`,
+    `Auditoria incluída: ${result.summary?.auditoria || 0}`,
+    ...result.errors.map(message => `Erro: ${message}`),
+    ...result.warnings.map(message => `Aviso: ${message}`),
+  ];
+  output.textContent = lines.join("\n");
+  source.innerHTML = result.valid ? result.summary.cenarios.map(row => `<option value="${row.id}">${scenarioCompetence(row)} — ${escapeHtml(row.nome || "Competência")}</option>`).join("") : "";
+  source.disabled = !result.valid;
+  restore.disabled = !result.valid;
+  if (result.valid) restore.dataset.backupLoaded = backup.integrity?.sha256 || "backup-validado";
+}
+
 function profileRowValue(row) {
   return {
     id: row.dataset.profile,
@@ -559,7 +589,7 @@ function renderScenarioControls() {
   $("#grant-scenario-status").textContent = `${SCENARIO_LABELS[scenario?.status] || scenario?.status || ""}${scenario?.dados_individualizados_completos === false ? " · dados incompletos" : ""}`;
 }
 
-function renderAll() { renderScenarioControls(); refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderReferences(); renderAudit(); renderProfiles(); renderOnlineUsers(); }
+function renderAll() { renderScenarioControls(); refreshSummary(); renderCards(); renderSummary(); renderGrants(); renderCsjt(); renderReport(); renderReferences(); renderAudit(); renderProfiles(); renderOnlineUsers(); renderBackupValidation(); }
 
 function updateNewGrantVisibility(activeView) {
   $("#new-grant").hidden = !(canEditScenario() && activeView === "gratificacoes");
@@ -722,6 +752,47 @@ function bindEvents() {
       const deleted = await clearAuditLogs();
       await reload();
       toast(`${deleted} registro${deleted === 1 ? " removido" : "s removidos"}. A limpeza foi registrada na auditoria.`);
+    } catch (error) { toast(error.message, true); }
+    finally { event.currentTarget.disabled = false; }
+  });
+  $("#export-backup").addEventListener("click", async event => {
+    if (state.identity?.profile.role !== "admin") return toast("Somente administradores podem exportar backups.", true);
+    event.currentTarget.disabled = true;
+    try {
+      const backup = await exportOperationalBackup($("#backup-include-audit").checked);
+      const result = validateBackup(backup);
+      if (!result.valid) throw new Error(`O backup gerado não passou na validação: ${result.errors.join(" ")}`);
+      downloadBackup(backup);
+      toast("Backup exportado e validado.");
+    } catch (error) { toast(error.message, true); }
+    finally { event.currentTarget.disabled = false; }
+  });
+  $("#backup-file").addEventListener("change", async event => {
+    const file = event.currentTarget.files?.[0];
+    validatedBackup = null;
+    if (!file) return renderBackupValidation();
+    try {
+      if (file.size > 10 * 1024 * 1024) throw new Error("O arquivo excede o limite de 10 MB.");
+      const backup = JSON.parse(await file.text());
+      validatedBackup = { backup, result: validateBackup(backup) };
+    } catch (error) { validatedBackup = { backup: {}, result: { valid: false, errors: [`Não foi possível ler o backup: ${error.message}`], warnings: [], summary: null } }; }
+    if (validatedBackup?.result.valid && !$("#backup-target-competence").value) $("#backup-target-competence").value = nextReferenceCompetence();
+    renderBackupValidation();
+  });
+  $("#restore-backup").addEventListener("click", async event => {
+    if (state.identity?.profile.role !== "admin" || !validatedBackup?.result.valid) return;
+    const target = $("#backup-target-competence").value;
+    const source = $("#backup-source-scenario").value;
+    if (!/^\d{4}-\d{2}$/.test(target) || !source) return toast("Informe a competência de destino e a origem do backup.", true);
+    const sourceScenario = validatedBackup.result.summary.cenarios.find(row => row.id === source);
+    if (!confirm(`Restaurar ${scenarioCompetence(sourceScenario)} como nova competência ${target.slice(5, 7)}/${target.slice(0, 4)}? A competência será criada em rascunho e nenhum dado existente será substituído.`)) return;
+    event.currentTarget.disabled = true;
+    try {
+      const id = await restoreBackupAsNewCompetence(validatedBackup.backup, target, source);
+      state.scenarioId = id;
+      validatedBackup = null;
+      await reload();
+      toast("Backup restaurado como nova competência em rascunho.");
     } catch (error) { toast(error.message, true); }
     finally { event.currentTarget.disabled = false; }
   });

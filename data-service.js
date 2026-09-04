@@ -133,3 +133,13 @@ export async function clearAuditLogs() {
   if (error) throw error;
   return Number(data ?? 0);
 }
+
+export async function exportOperationalBackup(includeAudit = false) {
+  const { data, error } = await db().functions.invoke("backup-data", { body: { action: "export", includeAudit: Boolean(includeAudit) } });
+  return functionResponse(data, error).then(result => result.data);
+}
+
+export async function restoreBackupAsNewCompetence(backup, competence, sourceScenarioId) {
+  const { data, error } = await db().functions.invoke("backup-data", { body: { action: "restore", backup, competence, sourceScenarioId } });
+  return functionResponse(data, error).then(result => result.data);
+}

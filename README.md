@@ -32,7 +32,7 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 9. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
 10. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
 11. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
-12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql`, `supabase-grant-delete-migration.sql` e `supabase-user-profile-migration.sql`, nesta ordem.
+12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql`, `supabase-grant-delete-migration.sql`, `supabase-backup-migration.sql` e `supabase-user-profile-migration.sql`, nesta ordem.
 
 ## Histórico por competência
 
@@ -57,6 +57,7 @@ supabase secrets set SITE_URL=https://aagsf1.github.io/gratificacoes/
 supabase functions deploy invite-user
 supabase functions deploy delete-user
 supabase functions deploy update-user
+supabase functions deploy backup-data
 ```
 
 Depois disso, um administrador pode informar nome, e-mail e perfil na aplicação. O usuário receberá um código de convite, abrirá **Primeiro acesso / cadastrar senha** na tela inicial, validará o código e criará a própria senha. Não é gerada nem enviada uma senha automática. Os perfis continuam protegidos por RLS e somente administradores podem alterá-los.
@@ -74,6 +75,14 @@ A trilha de auditoria é exclusiva do perfil `admin`. A opção **Limpar registr
 O quadro **Usuários online agora** usa heartbeats na tabela `user_presence`. Cada aba autenticada pode gravar e remover somente a própria sessão; apenas administradores podem consultar as sessões dos demais usuários. Uma sessão é considerada online enquanto seu heartbeat tiver menos de 90 segundos. “Online” significa que a aplicação está aberta e ativa, não apenas que existe uma sessão Auth ainda válida. A lista é informativa e não é usada para decisões de autorização.
 
 Nunca coloque a chave secreta do projeto, credenciais de banco ou tokens em `app-config.js`. A chave publicável existe para uso no navegador; a segurança efetiva é aplicada pelas políticas RLS.
+
+## Backup e recuperação operacional
+
+Somente administradores ativos encontram a seção **Backup e recuperação** em Administração. A Edge Function `backup-data` valida novamente a sessão e o perfil no servidor antes de exportar ou restaurar; a função usa apenas o token da sessão e nunca uma `service_role` no navegador. A exportação gera um JSON versionado com os tipos CJ, competências, referências e gratificações ativas ou inativas; a auditoria é opcional e serve apenas como consulta. O arquivo não inclui usuários, perfis, senhas, sessões, tokens, chaves ou credenciais.
+
+Antes de restaurar, o arquivo é validado localmente quanto ao formato, integridade estrutural, competências, tipos, relações, duplicidades e totais. A única restauração oferecida pela aplicação cria uma **nova competência em rascunho**, sem apagar, sobrescrever ou tornar vigente nenhum dado existente. A operação é transacional e registrada na auditoria. Execute `supabase-backup-migration.sql` no SQL Editor do Supabase antes de usar a funcionalidade.
+
+Essa funcionalidade é um backup operacional dos dados de gratificações. Para recuperação de desastre completa, inclusive Supabase Auth, utilize os backups/PITR fornecidos pelo próprio Supabase.
 
 ## Validação local
 
