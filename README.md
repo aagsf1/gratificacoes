@@ -89,7 +89,7 @@ Essa funcionalidade é um backup operacional dos dados de gratificações. Para 
 
 O workflow `.github/workflows/supabase-heartbeat.yml` aciona, no máximo a cada 48 horas, a Edge Function `maintenance-heartbeat`. A rotina realiza somente contagens agregadas de cenários, tipos e referências e registra uma execução técnica no schema isolado `maintenance`; ela não altera gratificações, competências, referências financeiras, usuários, perfis ou auditoria funcional.
 
-Antes de ativar o workflow, execute `supabase-maintenance-heartbeat-migration.sql` no SQL Editor e publique a função com `supabase functions deploy maintenance-heartbeat --no-verify-jwt`. Configure o mesmo valor aleatório forte como `MAINTENANCE_HEARTBEAT_SECRET` nos segredos da Edge Function e `SUPABASE_HEARTBEAT_SECRET` nos **Actions secrets** do repositório. Esse valor não deve ser salvo em arquivos, commits, logs ou no navegador. A execução manual também respeita o intervalo mínimo de 24 horas.
+Antes de ativar o workflow, execute `supabase-maintenance-heartbeat-migration.sql` no SQL Editor e publique a função com `supabase functions deploy maintenance-heartbeat --no-verify-jwt`. Configure o mesmo valor aleatório forte como `MAINTENANCE_HEARTBEAT_SECRET` nos segredos da Edge Function e `SUPABASE_HEARTBEAT_SECRET` nos **Actions secrets** do repositório. Esse valor não deve ser salvo em arquivos, commits, logs ou no navegador. Execuções autenticadas sob demanda não têm intervalo mínimo: em **Actions → Supabase activity heartbeat → Run workflow**, cada execução grava um novo registro técnico. Para atualizar instalações anteriores, reaplique esse SQL; não é necessário trocar segredos nem republicar a Edge Function.
 
 ## Validação local
 

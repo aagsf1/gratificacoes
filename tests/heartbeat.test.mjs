@@ -10,7 +10,7 @@ const workflow = await readFile(resolve(root, ".github/workflows/supabase-heartb
 
 assert.match(migration, /create schema if not exists maintenance/, "A escrita técnica deve ficar em schema isolado");
 assert.match(migration, /enable row level security/, "A tabela técnica deve manter RLS habilitado");
-assert.match(migration, /interval '24 hours'/, "A rotina deve impedir repetição prematura");
+assert.doesNotMatch(migration, /interval '24 hours'|last_run|últimas 24 horas/, "Chamadas autenticadas devem poder executar a qualquer momento");
 assert.match(migration, /public\.run_maintenance_heartbeat[\s\S]*grant execute on function public\.run_maintenance_heartbeat\(text\) to service_role/, "A chamada exposta deve ser exclusiva da função do servidor");
 assert.match(migration, /select count\(\*\).*public\.cenarios[\s\S]*select count\(\*\).*public\.tipos_gratificacao[\s\S]*select count\(\*\).*public\.referencias_financeiras/, "A rotina deve fazer somente leituras agregadas das tabelas operacionais");
 assert.doesNotMatch(migration, /(?:insert into|update|delete from)\s+public\.(?:cenarios|gratificacoes|referencias_financeiras|profiles|audit_logs)/i, "A rotina não pode escrever em dados operacionais");
