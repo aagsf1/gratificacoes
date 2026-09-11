@@ -1,0 +1,31 @@
+name: Supabase activity heartbeat
+
+on:
+  schedule:
+    # A cada dois dias às 03:17 UTC; em meses curtos pode ocorrer antes, nunca depois de 48h.
+    - cron: "17 3 */2 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-activity-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run isolated Supabase maintenance heartbeat
+        env:
+          HEARTBEAT_URL: https://wiollbxstffanegwdiod.supabase.co/functions/v1/maintenance-heartbeat
+          HEARTBEAT_SECRET: ${{ secrets.SUPABASE_HEARTBEAT_SECRET }}
+        run: |
+          test -n "$HEARTBEAT_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --request POST "$HEARTBEAT_URL" \
+            --header "x-heartbeat-secret: $HEARTBEAT_SECRET" \
+            --header "content-type: application/json" \
+            --data '{}'

@@ -58,6 +58,7 @@ supabase functions deploy invite-user
 supabase functions deploy delete-user
 supabase functions deploy update-user
 supabase functions deploy backup-data
+supabase functions deploy maintenance-heartbeat --no-verify-jwt
 ```
 
 Depois disso, um administrador pode informar nome, e-mail e perfil na aplicação. O usuário receberá um código de convite, abrirá **Primeiro acesso / cadastrar senha** na tela inicial, validará o código e criará a própria senha. Não é gerada nem enviada uma senha automática. Os perfis continuam protegidos por RLS e somente administradores podem alterá-los.
@@ -83,6 +84,12 @@ Somente administradores ativos encontram a seção **Backup e recuperação** em
 Antes de restaurar, o arquivo é validado localmente quanto ao formato, integridade estrutural, competências, tipos, relações, duplicidades e totais. A única restauração oferecida pela aplicação cria uma **nova competência em rascunho**, sem apagar, sobrescrever ou tornar vigente nenhum dado existente. A operação é transacional e registrada na auditoria. Execute `supabase-backup-migration.sql` no SQL Editor do Supabase antes de usar a funcionalidade.
 
 Essa funcionalidade é um backup operacional dos dados de gratificações. Para recuperação de desastre completa, inclusive Supabase Auth, utilize os backups/PITR fornecidos pelo próprio Supabase.
+
+## Atividade técnica do Supabase
+
+O workflow `.github/workflows/supabase-heartbeat.yml` aciona, no máximo a cada 48 horas, a Edge Function `maintenance-heartbeat`. A rotina realiza somente contagens agregadas de cenários, tipos e referências e registra uma execução técnica no schema isolado `maintenance`; ela não altera gratificações, competências, referências financeiras, usuários, perfis ou auditoria funcional.
+
+Antes de ativar o workflow, execute `supabase-maintenance-heartbeat-migration.sql` no SQL Editor e publique a função com `supabase functions deploy maintenance-heartbeat --no-verify-jwt`. Configure o mesmo valor aleatório forte como `MAINTENANCE_HEARTBEAT_SECRET` nos segredos da Edge Function e `SUPABASE_HEARTBEAT_SECRET` nos **Actions secrets** do repositório. Esse valor não deve ser salvo em arquivos, commits, logs ou no navegador. A execução manual também respeita o intervalo mínimo de 24 horas.
 
 ## Validação local
 
