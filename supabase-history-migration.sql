@@ -43,6 +43,7 @@ end $$;
 drop trigger if exists cenarios_touch on public.cenarios;
 create trigger cenarios_touch before update on public.cenarios
 for each row execute function public.touch_scenario();
+revoke execute on function public.touch_scenario() from public,anon,authenticated;
 
 create or replace function public.can_edit_scenario(target_id uuid) returns boolean
 language sql stable security definer set search_path=public as $$
@@ -69,7 +70,7 @@ grant delete on public.gratificacoes to authenticated;
 
 drop view if exists public.gratificacoes_detalhadas;
 create view public.gratificacoes_detalhadas
-with (security_invoker=false,security_barrier=true) as
+with (security_invoker=true,security_barrier=true) as
 select
   g.id,g.cenario_id,g.tipo_id,g.unidade_sigla,g.unidade_nome,g.servidor_nome,
   g.com_vinculo,g.situacao,g.observacoes,g.legacy_order,g.ativo,

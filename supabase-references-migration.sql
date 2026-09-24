@@ -100,6 +100,7 @@ left join public.referencias_financeiras r
   and r.cenario_id=(select id from public.cenarios where status='VIGENTE' limit 1);
 revoke all on public.gratificacoes_detalhadas from anon,authenticated,service_role;
 grant select on public.gratificacoes_detalhadas to authenticated;
+revoke execute on function public.normalize_reference() from public,anon,authenticated;
 
 create or replace function public.save_financial_references(
   p_cenario_id uuid,

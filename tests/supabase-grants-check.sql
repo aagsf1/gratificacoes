@@ -53,3 +53,15 @@ where n.nspname='public' and p.proname in
   ('clear_audit_logs','save_financial_references','change_competence_status',
    'export_operational_backup','restore_backup_as_new_competence')
 order by p.proname;
+
+select c.relname, coalesce(c.reloptions @> array['security_invoker=true'],false) as invocador
+from pg_class c join pg_namespace n on n.oid=c.relnamespace
+where n.nspname='public' and c.relname='gratificacoes_detalhadas';
+
+select p.proname, has_function_privilege('anon',p.oid,'EXECUTE') as acesso_anonimo,
+       has_function_privilege('authenticated',p.oid,'EXECUTE') as acesso_autenticado
+from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+where n.nspname='public' and p.proname in
+  ('audit_change','current_role','handle_new_user','is_admin','is_reader',
+   'is_writer','normalize_reference','touch_and_actor','touch_scenario')
+order by p.proname;

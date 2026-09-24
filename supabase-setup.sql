@@ -181,6 +181,13 @@ grant select,update on public.profiles to service_role;
 grant insert on public.audit_logs to service_role;
 revoke all on function public.clear_audit_logs() from public,anon;
 grant execute on function public.clear_audit_logs() to authenticated;
+-- Funções internas de gatilho não são pontos de entrada da Data API.
+revoke execute on function public.handle_new_user(), public.touch_and_actor(),
+  public.audit_change() from public,anon,authenticated;
+revoke execute on function public.current_role(), public.is_reader(),
+  public.is_writer(), public.is_admin() from public,anon;
+grant execute on function public.current_role(), public.is_reader(),
+  public.is_writer(), public.is_admin() to authenticated;
 
 insert into public.tipos_gratificacao(codigo,descricao,valor_integral,percentual_com_vinculo) values
 ('CJ-01','Cargo em comissão CJ-01',11870.0000,.6500),
