@@ -54,6 +54,18 @@ where n.nspname='public' and p.proname in
    'export_operational_backup','restore_backup_as_new_competence')
 order by p.proname;
 
+-- Após supabase-private-functions-migration.sql, não deve haver implementações
+-- SECURITY DEFINER desses nomes no esquema público.
+select n.nspname,p.proname,p.prosecdef as definidor,
+       has_function_privilege('anon',p.oid,'EXECUTE') as acesso_anonimo,
+       has_function_privilege('authenticated',p.oid,'EXECUTE') as acesso_autenticado
+from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+where n.nspname in ('public','app_private') and p.proname in
+  ('current_role','is_reader','is_writer','is_admin','can_edit_scenario',
+   'clear_audit_logs','save_financial_references','change_competence_status',
+   'export_operational_backup','restore_backup_as_new_competence')
+order by p.proname,n.nspname;
+
 select c.relname, coalesce(c.reloptions @> array['security_invoker=true'],false) as invocador
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
 where n.nspname='public' and c.relname='gratificacoes_detalhadas';

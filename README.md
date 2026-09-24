@@ -36,6 +36,8 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 
 Para uma instalação existente que já contém as tabelas e funções atuais, aplique somente `supabase-production-grants-migration.sql` para ajustar os privilégios e a visão, sem recriar objetos nem dados. Confira em seguida `tests/supabase-grants-check.sql`.
 
+Depois de `supabase-backup-migration.sql`, aplique `supabase-private-functions-migration.sql` para colocar as dez implementações privilegiadas em `app_private`, fora do esquema exposto pela Data API. Os nomes públicos permanecem como funções `SECURITY INVOKER`; as políticas e os clientes continuam chamando as mesmas funções. Execute essa migração uma única vez e confira o advisor de segurança e os acessos dos perfis após a aplicação. A proteção contra senhas vazadas é uma configuração de **Authentication > Sign In / Providers > Email** do painel Supabase, disponível no plano Pro ou superior; não é alterada por SQL.
+
 ## Privilégios da Data API
 
 Os scripts de instalação removem os privilégios automáticos amplos de `anon`, `authenticated` e `service_role` sobre os objetos funcionais e concedem explicitamente apenas as operações usadas pelo aplicativo. As políticas RLS continuam determinando o que cada perfil (`consulta`, `gestor` e `admin`) pode acessar. Uma política RLS, sozinha, não concede o privilégio SQL para usar a Data API.
