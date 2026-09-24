@@ -32,7 +32,21 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 9. Em **Authentication > URL Configuration**, registre a URL do GitHub Pages como Site URL e Redirect URL.
 10. Em **Authentication > Emails > Reset password**, use o conteúdo de `supabase-email-template-recovery.html`.
 11. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
-12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql`, `supabase-grant-delete-migration.sql`, `supabase-backup-migration.sql` e `supabase-user-profile-migration.sql`, nesta ordem.
+12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql`, `supabase-grant-delete-migration.sql`, `supabase-backup-migration.sql`, `supabase-user-profile-migration.sql` e `supabase-security-hardening-migration.sql`, nesta ordem. Em instalações novas com os scripts atualizados, a última migração apenas reafirma as restrições.
+
+Para uma instalação existente que já contém as tabelas e funções atuais, aplique somente `supabase-production-grants-migration.sql` para ajustar os privilégios e a visão, sem recriar objetos nem dados. Confira em seguida `tests/supabase-grants-check.sql`.
+
+Depois de `supabase-backup-migration.sql`, aplique `supabase-private-functions-migration.sql` para colocar as dez implementações privilegiadas em `app_private`, fora do esquema exposto pela Data API. Os nomes públicos permanecem como funções `SECURITY INVOKER`; as políticas e os clientes continuam chamando as mesmas funções. Execute essa migração uma única vez e confira o advisor de segurança e os acessos dos perfis após a aplicação. A proteção contra senhas vazadas é uma configuração de **Authentication > Sign In / Providers > Email** do painel Supabase, disponível no plano Pro ou superior; não é alterada por SQL.
+
+## Privilégios da Data API
+
+Os scripts de instalação removem os privilégios automáticos amplos de `anon`, `authenticated` e `service_role` sobre os objetos funcionais e concedem explicitamente apenas as operações usadas pelo aplicativo. As políticas RLS continuam determinando o que cada perfil (`consulta`, `gestor` e `admin`) pode acessar. Uma política RLS, sozinha, não concede o privilégio SQL para usar a Data API.
+
+`anon` não recebe privilégios sobre as tabelas e views funcionais. As Edge Functions `delete-user` e `update-user` usam `service_role` apenas no ambiente protegido: os privilégios diretos necessários são `SELECT, UPDATE` em `profiles` e `INSERT` em `audit_logs`. A função `invite-user` usa a chave de serviço para Supabase Auth, enquanto a consulta e a atualização de `profiles` usam o token do administrador autenticado. Não exponha a chave de serviço no navegador.
+
+Toda migration futura que criar uma tabela, view ou função acessível pela Data API deve declarar os `GRANT`s específicos e revogar qualquer acesso anônimo herdado; confira também o uso de sequences antes de conceder privilégios nelas. O `id` de `audit_logs` usa `GENERATED ALWAYS AS IDENTITY` e é preenchido pelos `INSERT`s, sem acesso direto do cliente à sequence. Não restaure `ALTER DEFAULT PRIVILEGES` amplo.
+
+Para conferir uma instalação limpa, execute os SQLs na ordem da seção **Configuração** em um projeto de teste isolado (incluindo `supabase-grant-delete-migration.sql`), depois execute `tests/supabase-grants-check.sql` no SQL Editor: todas as linhas da primeira consulta devem retornar `OK`, todas as tabelas da segunda devem ter RLS habilitada, e as funções expostas na terceira devem negar `anon`. Crie contas de teste para `consulta`, `gestor` e `admin`. Confirme leitura de dados para os três perfis, escrita de gratificações somente para `gestor` e `admin`, referências e auditoria conforme as políticas, bloqueio das tabelas para `anon`, e os fluxos das funções `invite-user`, `update-user` e `delete-user`. Não execute os ensaios de exclusão ou restauração com contas ou dados reais.
 
 ## Histórico por competência
 

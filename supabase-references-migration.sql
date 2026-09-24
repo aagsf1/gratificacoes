@@ -62,6 +62,7 @@ drop policy if exists cenarios_writer_write on public.cenarios;
 create policy cenarios_writer_write on public.cenarios
   for all to authenticated using (public.is_writer()) with check (public.is_writer());
 
+revoke all on public.referencias_financeiras from anon,authenticated,service_role;
 grant select,insert,update,delete on public.referencias_financeiras to authenticated;
 
 insert into public.referencias_financeiras (
@@ -79,6 +80,7 @@ select r.*,t.codigo,t.descricao,c.competencia,c.orcamento_paradigma,c.status
 from public.referencias_financeiras r
 join public.tipos_gratificacao t on t.id=r.tipo_id
 join public.cenarios c on c.id=r.cenario_id;
+revoke all on public.referencias_financeiras_detalhadas from anon,authenticated,service_role;
 grant select on public.referencias_financeiras_detalhadas to authenticated;
 
 create or replace view public.gratificacoes_detalhadas
@@ -96,7 +98,9 @@ join public.tipos_gratificacao t on t.id=g.tipo_id
 left join public.referencias_financeiras r
   on r.tipo_id=g.tipo_id and r.ativo
   and r.cenario_id=(select id from public.cenarios where status='VIGENTE' limit 1);
+revoke all on public.gratificacoes_detalhadas from anon,authenticated,service_role;
 grant select on public.gratificacoes_detalhadas to authenticated;
+revoke execute on function public.normalize_reference() from public,anon,authenticated;
 
 create or replace function public.save_financial_references(
   p_cenario_id uuid,
