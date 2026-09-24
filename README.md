@@ -34,6 +34,8 @@ Aplicativo multiusuário estático para GitHub Pages, com autenticação e persi
 11. Em **Authentication > Emails > Invite user**, use o conteúdo de `supabase-email-template-invite.html`.
 12. Em um projeto já configurado, execute `supabase-admin-presence-migration.sql`, `supabase-access-ui-migration.sql`, `supabase-references-migration.sql`, `supabase-history-migration.sql`, `supabase-grant-delete-migration.sql`, `supabase-backup-migration.sql`, `supabase-user-profile-migration.sql` e `supabase-security-hardening-migration.sql`, nesta ordem. Em instalações novas com os scripts atualizados, a última migração apenas reafirma as restrições.
 
+Para uma instalação existente que já contém as tabelas e funções atuais, aplique somente `supabase-production-grants-migration.sql` para ajustar os privilégios e a visão, sem recriar objetos nem dados. Confira em seguida `tests/supabase-grants-check.sql`.
+
 ## Privilégios da Data API
 
 Os scripts de instalação removem os privilégios automáticos amplos de `anon`, `authenticated` e `service_role` sobre os objetos funcionais e concedem explicitamente apenas as operações usadas pelo aplicativo. As políticas RLS continuam determinando o que cada perfil (`consulta`, `gestor` e `admin`) pode acessar. Uma política RLS, sozinha, não concede o privilégio SQL para usar a Data API.
