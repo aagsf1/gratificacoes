@@ -162,7 +162,12 @@ create policy user_presence_update on public.user_presence for update to authent
 create policy user_presence_delete on public.user_presence for delete to authenticated
   using (user_id=auth.uid());
 
-revoke all on public.audit_logs from anon,authenticated;
+-- O acesso pela Data API exige GRANT além de políticas RLS.
+-- Revoga concessões automáticas amplas em instalações novas.
+revoke all on public.profiles,public.tipos_gratificacao,public.cenarios,
+  public.gratificacoes,public.audit_logs,public.user_presence
+  from anon,authenticated,service_role;
+revoke all on public.gratificacoes_detalhadas from anon,authenticated,service_role;
 grant select on public.profiles,public.tipos_gratificacao,public.cenarios,public.gratificacoes to authenticated;
 grant insert,update on public.gratificacoes to authenticated;
 grant update on public.profiles to authenticated;
@@ -170,6 +175,10 @@ grant insert,update,delete on public.tipos_gratificacao,public.cenarios to authe
 grant select on public.audit_logs to authenticated;
 grant select on public.gratificacoes_detalhadas to authenticated;
 grant select,insert,update,delete on public.user_presence to authenticated;
+-- delete-user e update-user consultam/atualizam perfis e inserem auditoria
+-- com a chave service_role no ambiente protegido das Edge Functions.
+grant select,update on public.profiles to service_role;
+grant insert on public.audit_logs to service_role;
 revoke all on function public.clear_audit_logs() from public,anon;
 grant execute on function public.clear_audit_logs() to authenticated;
 

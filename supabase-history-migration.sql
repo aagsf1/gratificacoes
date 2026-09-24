@@ -89,6 +89,7 @@ join public.tipos_gratificacao t on t.id=g.tipo_id
 left join public.referencias_financeiras r
   on r.cenario_id=g.cenario_id and r.tipo_id=g.tipo_id and r.ativo
 where public.is_reader();
+revoke all on public.gratificacoes_detalhadas from anon,authenticated,service_role;
 grant select on public.gratificacoes_detalhadas to authenticated;
 
 drop function if exists public.save_financial_references(uuid,date,numeric,boolean,jsonb);
